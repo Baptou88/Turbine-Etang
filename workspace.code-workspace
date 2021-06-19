@@ -1,0 +1,19 @@
+{
+    "folders": [
+        {
+            "name": "Master",
+            "path": "Master"
+        },
+        {
+            "name": "Etang",
+            "path": "Etang"
+        },
+        {
+            "name": "Turbine",
+            "path": "Turbine"
+        },
+        {
+            "path": "librairies"
+        }
+    ]
+}
