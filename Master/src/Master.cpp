@@ -32,37 +32,17 @@ SPIClass spi1;
 AsyncWebServer serverHTTP(80);	//80 est le port standard du protocole HTTP
 
 // Definition de parametre Wifi
-const char* SSID = "Livebox-44C1";
-const char* PASSWORD = "20AAF66FCE1928F64292F3E28E";
+// const char* SSID = "Livebox-44C1";
+// const char* PASSWORD = "20AAF66FCE1928F64292F3E28E";
+
+const char* SSID = "Honor 10";
+const char* PASSWORD = "97540708";
 const char* HOSTNAME = "ESP32LoRa";
 
 byte localAddress = 0x0A;
 long msgCount = 0;
 byte displayMode = 0;
 
-class Message
-{
-public:
-	
-	byte recipient;
-	byte sender;
-	int msgID;
-	String Content;
-	int length() {
-		return this->Content.length();
-	}
-	String toJson() {
-		return "{ \"recipient\" : \"" + String(recipient) + "\"," +
-			"\"sender\" : \"" + String(sender) + "\"," +
-			"\"msgId\" : \"" + String(msgID) + "\"," +
-			"\"content\" : \"" + String(Content) + "\"" +
-			
-			"}";
-	}
-
-//private:
-
-};
 class Command
 {
 public:
@@ -185,7 +165,7 @@ String processor(const String& var) {
 		String retour = "";
 		
 		for (byte i = 0; i < 3; i = i + 1) {
-			retour += "<div class=\"card mb-2\" id=\"board-"+ String(allBoard[i]->Name) + "\">\n";
+			retour += "<div class=\"card mb-2\" id=\"board-"+ String(allBoard[i]->localAddress) + "\">\n";
 			retour += "<h4 class= \"card-title\">" + String(allBoard[i]->Name) + " <span class=\"text-muted\"> " + String(allBoard[i]->localAddress, HEX) +   " " + String(allBoard[i]->connected) + "</span></h4>\n";
 			
 			retour += "<div class = \"card-body\">\n";
@@ -240,8 +220,11 @@ String processor(const String& var) {
 	return String();
 }
 void InitBoard(void) {
-	EtangBoard.AddCommand("SaveEEPROM", 0,"button", "SaveEEPROM");
+	EtangBoard.AddCommand("SaveEEPROM", 0,"button", "SEEPROM");
 	EtangBoard.AddCommand("ClearEEPROM", 1, "button", "ClearEEPROM");
+	EtangBoard.AddCommand("SetMax", 2, "button", "SMAX");
+	EtangBoard.AddCommand("SetMin", 3, "button", "SMIN");
+	EtangBoard.AddCommand("Veille",4,"button","SLEEP");
 
 	TurbineBoard.AddCommand("OuvertureTotale", 0, "button", "OuvertureTotale");
 	TurbineBoard.AddCommand("FermetureTotale", 1, "button", "FermetureTotale");
@@ -264,7 +247,9 @@ void RouteHttp() {
 			request->send(200, "text/plain", "OK");
 		}
 		else if (request->hasParam("b") && request->hasParam("c")) {
+			sendMessage( request->getParam("b")->value().toInt() ,request->getParam("c")->value());
 			request->send(200, "text/plain", "J'ai recu: b=" + request->getParam("b")->value() + " et c: " + request->getParam("c")->value() );
+			
 		}
 		
 	});
@@ -381,7 +366,8 @@ void onReceive(int packetSize)
 	//// read packet header bytes:
 	receivedMessage.recipient = LoRa.read();          // recipient address
 	receivedMessage.sender = LoRa.read();            // sender address
-	byte incomingMsgId = LoRa.read();     // incoming msg ID
+	receivedMessage.msgID = LoRa.read();
+	//byte incomingMsgId = LoRa.read();     // incoming msg ID
 	byte incomingLength = LoRa.read();    // incoming msg length
 
 	receivedMessage.Content = "";                 // payload of packet
@@ -397,12 +383,12 @@ void onReceive(int packetSize)
 		return;                             // skip rest of function
 	}
 
-	//// if the recipient isn't this device or broadcast,
-	//if (LastMessage.recipient != localAddress && LastMessage.recipient != 0xFF)
-	//{
-	//	Serial.println("This message is not for me.");
-	//	return;                             // skip rest of function
-	//}
+	// if the recipient isn't this device or broadcast,
+	if (receivedMessage.recipient != localAddress && receivedMessage.recipient != 0xFF)
+	{
+		Serial.println("This message is not for me.");
+		return;                             // skip rest of function
+	}
 	switch (receivedMessage.sender)
 	{
 	case MASTER:
@@ -422,15 +408,16 @@ void onReceive(int packetSize)
 		break;
 	}
 	//// if message is for this device, or broadcast, print details:
-	Serial.println("Received from: 0x" + String(receivedMessage.sender, HEX));
-	Serial.println("Sent to: 0x" + String(receivedMessage.recipient, HEX));
-	Serial.println("Message ID: " + String(incomingMsgId));
-	Serial.println("Message length: " + String(incomingLength));
-	Serial.println("Message: " + receivedMessage.Content);
-	Serial.println("RSSI: " + String(LoRa.packetRssi()));
-	//Serial.println("Snr: " + String(LoRa.packetSnr()));
-	Serial.println();
+	// Serial.println("Received from: 0x" + String(receivedMessage.sender, HEX));
+	// Serial.println("Sent to: 0x" + String(receivedMessage.recipient, HEX));
+	// Serial.println("Message ID: " + String(incomingMsgId));
+	// Serial.println("Message length: " + String(incomingLength));
+	// Serial.println("Message: " + receivedMessage.Content);
+	// Serial.println("RSSI: " + String(LoRa.packetRssi()));
+	// //Serial.println("Snr: " + String(LoRa.packetSnr()));
+	// Serial.println();
 	Heltec.display->println("0x" + String(receivedMessage.sender,HEX) + " to 0x" + String(receivedMessage.recipient, HEX) + " " + String(receivedMessage.Content));
+	LoRa.receive();
 }
 
 void  initWifi(void)

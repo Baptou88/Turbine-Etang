@@ -25,5 +25,38 @@ enum ELora
 	Turbine = 0xB
 };
 void sendMessage(byte destination, String outgoing);
+
+class Message
+{
+public:
+	
+	byte recipient;
+	byte sender;
+	int msgID;
+	String Content;
+	int length() {
+		return this->Content.length();
+	}
+	String toJson() {
+		String retour = "{ \"recipient\" : \"" + String(recipient) + "\"," +
+			"\"sender\" : \"" + String(sender) + "\"," +
+			"\"msgId\" : \"" + String(msgID) + "\"," ;
+		if (Content == "")
+		{
+			retour += "\"content\" : \"\"" ;
+		} else
+		{
+			retour += "\"content\" : " + String(Content) + "";
+		}
+		retour += "}";
+		
+		return retour;
+	}
+
+//private:
+
+};
+
+
 #endif
 
