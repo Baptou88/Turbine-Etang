@@ -58,5 +58,7 @@ public:
 };
 
 
+String string_wakeup_reason();
+
 #endif
 

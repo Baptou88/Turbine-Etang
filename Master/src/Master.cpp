@@ -25,6 +25,7 @@
 #define BAND 868E6
 #define PRGButton 0
 
+bool previousEtatbutton = false;
 SPIClass spi1;
 
 // Set web server port number to 80
@@ -32,8 +33,9 @@ SPIClass spi1;
 AsyncWebServer serverHTTP(80);	//80 est le port standard du protocole HTTP
 
 // Definition de parametre Wifi
-// const char* SSID = "Livebox-44C1";
-// const char* PASSWORD = "20AAF66FCE1928F64292F3E28E";
+
+//const char* SSID = "Livebox-44C1";
+//const char* PASSWORD = "20AAF66FCE1928F64292F3E28E";
 
 const char* SSID = "Honor 10";
 const char* PASSWORD = "97540708";
@@ -174,11 +176,11 @@ String processor(const String& var) {
 			{
 				if (allBoard[i]->Commands[j].Name != "")
 				{
-					retour += "<input type=\""+ allBoard[i]->Commands[j].Type + "\" name=\""+ allBoard[i]->Commands[j].Name + "\" value=\"" + allBoard[i]->Commands[j].Name + "\"onclick=update(this,"+ "\""+allBoard[i]->Commands[j].Action +"\")>\n";
+					retour += "<input type=\""+ allBoard[i]->Commands[j].Type + "\" name=\""+ allBoard[i]->Commands[j].Name + "\" value=\"" + allBoard[i]->Commands[j].Name + "\" onclick=\"update(this,"+ "'"+allBoard[i]->Commands[j].Action +"')\">\n";
 				}
 			}
-			retour += "<button type=\"button\" class=\"btn btn-info btn-sm\" data-toggle=\"modal\" data-target=\"#modal-"+ allBoard[i]->Name + "\">Open Modal</button>";
-			retour+= "</div></div>\n";
+			retour += "<button type=\"button\" class=\"btn btn-info btn-sm\" data-bs-toggle=\"modal\" data-bs-target=\"#modal"+ allBoard[i]->Name + "\">Open Modal</button>\n";
+			retour+= "</div>\n</div>\n";
 			
 			
 		}
@@ -191,25 +193,26 @@ String processor(const String& var) {
 
 		for (byte i = 0; i < 3; i = i + 1) {
 			
-			retour += "<div class=\"modal fade\" id=\"modal-" + allBoard[i]->Name + "\" role=\"dialog\">\n";
+			retour += "<div class=\"modal fade\" id=\"modal" + allBoard[i]->Name + "\" tabindex=\"-1\" aria-labelledby=\"exampleModalLabel\" aria-hidden=\"true\">\n";
 			retour += "<div class=\"modal-dialog\">\n";
 
 				
-			retour += "<div class=\"modal-content\">";
-			retour += "<div class=\"modal-header\">";
-			retour += "<button type=\"button\" class=\"close\" data-dismiss=\"modal\">&times;</button>";
-			retour += "<h4 class=\"modal-title\">Modal Header</h4>>";
+			retour += "<div class=\"modal-content\">\n";
+			retour += "<div class=\"modal-header\">\n";
+			retour += "<h4 class=\"modal-title\">Modal Header</h4>\n";
+			retour += "<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"modal\" aria-label=\"Close\"></button>\n"; //&times;
+			
+				retour+= "</div>\n";
+				retour+= "<div class=\"modal-body\">\n";
+				retour+= "<p>Some text in the modal.</p>\n";
 				retour+= "</div>";
-				retour+= "<div class=\"modal-body\">";
-				retour+= "<p>Some text in the modal.< / p>";
-				retour+= "</div>";
-				retour+= "<div clas =\"modal-footer\">";
-				retour+= "<button type=\"button\" class=\"btn btn-default\" data-dismiss = \"modal\">Close</button>";
-				retour+= "</div>";
-				retour+= "</div>";
+				retour+= "<div clas =\"modal-footer\">\n";
+				retour+= "<button type=\"button\" class=\"btn btn-default\" data-bs-dismiss = \"modal\">Close</button>\n";
+				retour+= "</div>\n";
+				retour+= "</div>\n";
 
-				retour+= "</div>";
-				retour+= "</div>";
+				retour+= "</div>\n";
+				retour+= "</div>\n";
 
 
 		}
@@ -225,9 +228,26 @@ void InitBoard(void) {
 	EtangBoard.AddCommand("SetMax", 2, "button", "SMAX");
 	EtangBoard.AddCommand("SetMin", 3, "button", "SMIN");
 	EtangBoard.AddCommand("Veille",4,"button","SLEEP");
+	EtangBoard.AddCommand("Veille2",5,"button","SLEEPTP");
 
-	TurbineBoard.AddCommand("OuvertureTotale", 0, "button", "OuvertureTotale");
-	TurbineBoard.AddCommand("FermetureTotale", 1, "button", "FermetureTotale");
+	TurbineBoard.AddCommand("OuvertureTotale", 0, "button", "OT");
+	TurbineBoard.AddCommand("FermetureTotale", 1, "button", "FT");
+
+	localboard.AddCommand("VextOff",0,"button","VEXTOFF");
+	localboard.AddCommand("VextOn",1,"button","VEXTON");
+}
+void TraitementCommande(String c){
+	if (c == "VEXTON")
+	{	
+		Serial.println("VEXTON");
+		Heltec.VextON();
+	}
+	if (c == "VEXTOFF")
+	{
+		Serial.println("VEXTOFF");
+		Heltec.VextOFF();
+	}
+	
 }
 void RouteHttp() {
 	serverHTTP.onNotFound([](AsyncWebServerRequest* request) {
@@ -247,7 +267,17 @@ void RouteHttp() {
 			request->send(200, "text/plain", "OK");
 		}
 		else if (request->hasParam("b") && request->hasParam("c")) {
-			sendMessage( request->getParam("b")->value().toInt() ,request->getParam("c")->value());
+			
+			if (request->getParam("b")->value().toInt() == localAddress)
+			{
+				Serial.println("Commande pour moi");
+				TraitementCommande(request->getParam("c")->value());
+			} else
+			{
+				sendMessage( request->getParam("b")->value().toInt() ,request->getParam("c")->value());
+			}
+			
+			
 			request->send(200, "text/plain", "J'ai recu: b=" + request->getParam("b")->value() + " et c: " + request->getParam("c")->value() );
 			
 		}
@@ -255,7 +285,7 @@ void RouteHttp() {
 	});
 	serverHTTP.on("/maj", HTTP_GET, [](AsyncWebServerRequest* request) {
 		String retour = "{ \"boards\" : [" + allBoard[0]->toJson() + "," + allBoard[1]->toJson() + "," + allBoard[2]->toJson() + "]}";
-
+		//Serial.println("maj" + String(retour));
 		request->send(200, "application/json", retour);
 		});
 	serverHTTP.on("/liste", HTTP_GET, [](AsyncWebServerRequest* request) {
@@ -288,13 +318,21 @@ void RouteHttp() {
 		request->send(SPIFFS,"/index.html", "text/html", false, processor);
 		});
 	serverHTTP.on("/app.js", HTTP_GET, [](AsyncWebServerRequest* request) {
-
-		
 		request->send(SPIFFS, "/app.js", "application/javascript");
 		});
+	serverHTTP.on("/manifest.json", HTTP_GET, [](AsyncWebServerRequest* request) {
+		request->send(SPIFFS, "/manifest.json", "application/javascript");
+		});
+	serverHTTP.on("/icons/logo-144.png", HTTP_GET, [](AsyncWebServerRequest* request) {
+		request->send(SPIFFS, "/icons/logo-144.png", "application/javascript");
+		});
+	serverHTTP.on("/icons/logo-192.png", HTTP_GET, [](AsyncWebServerRequest* request) {
+		request->send(SPIFFS, "/icons/logo-192.png", "application/javascript");
+		});
+	serverHTTP.on("/service-worker.js", HTTP_GET, [](AsyncWebServerRequest* request) {
+		request->send(SPIFFS, "/service-worker.js", "application/javascript");
+		});
 	serverHTTP.on("/data.json", HTTP_GET, [](AsyncWebServerRequest* request) {
-
-
 		request->send(SPIFFS, "/data.json", "application/json");
 		});
 	Serial.println("Configuration Route ok");
@@ -483,13 +521,19 @@ void InitSD(void) {
 }
 void setup() {
 	Heltec.begin(true, true, true, true, BAND);
-	InitSD();
+	//InitSD();
 	initWifi();
 	InitBoard();
+	Heltec.display->clear();
 	if (!SPIFFS.begin(true)) {
 		Serial.println("SPIFFS Mount Failed");
+		Heltec.display->drawString(0,10,"SPIFFS Failed");
 		return;
+	} else
+	{
+		Heltec.display->drawString(0,10,"SPIFFS OK");
 	}
+	Heltec.display->display();
 	pinMode(25, OUTPUT);
 	pinMode(PRGButton, INPUT_PULLUP);
 
@@ -501,18 +545,19 @@ void setup() {
 	LoRa.receive();
 
 	Serial.println("Heltec.LoRa init succeeded.");
-	delay(2000);
+	delay(1000);
 	Heltec.display->clear();
 	Heltec.display->flipScreenVertically();
-	Heltec.display->setLogBuffer(5, 30);
+	Heltec.display->setLogBuffer(5, 100);
 	RouteHttp();
 }
 
 // the loop function runs over and over again until power down or reset
 void loop() {
    
-	if (digitalRead(PRGButton) == LOW)
+	if ((digitalRead(PRGButton) == LOW) && !previousEtatbutton)
 	{
+		previousEtatbutton = true;
 		if (displayMode < 2 )
 		{
 			displayMode++;
@@ -521,6 +566,10 @@ void loop() {
 		{
 			displayMode = 0;
 		}
+	}
+	if (digitalRead(PRGButton) == HIGH)
+	{
+		previousEtatbutton = false;
 	}
 	displayData();
 	//----------------------------------------Serveur HTTP

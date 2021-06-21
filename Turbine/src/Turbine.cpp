@@ -7,8 +7,12 @@
 #include <Arduino.h>
 #include <heltec.h>
 #include "TurbineEtangLib.h"
+#include <Preferences.h>
+#include <ArduinoJSON.h>
 
 #define BAND 868E6
+#define PRGButton 0
+
 #define TAILLETAB 16
 
 //entree
@@ -25,6 +29,7 @@ byte msgCount = 0;
 //encodeur
 #define pinEncodA  37
 #define pinEncodB  36
+Preferences preferences;
 
 const int pinOuvertureVanne = 12;
 const int pinFermetureVanne = 13;
@@ -36,13 +41,14 @@ unsigned long dernieredetection = 0;
 
 bool bOuvertureTotale = false;
 bool bFermetureTotale = false;
-
+Message receivedMessage;
 int incCodeuse = 600;
-
+long ouvertureMax = 1800;
+byte displayMode = 0;
 long consigneMoteur = 0;
 volatile int sensMoteur = 0;
 long posMoteur;
-
+bool previousEtatbutton = false;
 //Automate
 
 enum Etapes
@@ -106,7 +112,23 @@ unsigned long Tempo[TAILLETAB];
 int degToInc(int degres) {
 	return ((degres * incCodeuse) / 360);
 }
-
+void asservissementMoteur() {
+	
+	if (sensMoteur>0)
+	{
+		consigneMoteur -= countEncodA;
+		//posMoteur += countEncodA;
+	}
+	else if (sensMoteur < 0) {
+		consigneMoteur += countEncodA;
+		//posMoteur -= countEncodA;
+	}
+	//consigneMoteur -= countEncodA;
+	countEncodA = 0;
+}
+float pPosMoteur(){
+	return  float(posMoteur) / float(ouvertureMax);
+}
 void InitTableau(void) {
 	int I;
 	for (I = 0; I < TAILLETAB ; I++) {
@@ -152,6 +174,48 @@ bool finTempo(int numTempo) {
 void acquisitionEntree(void) {
 	Entree[FCVanneOuverte] = digitalRead(pinFCVanneOuverte) ? true :false ;
 	Entree[FCVanneFerme] = digitalRead(pinFCVanneFermee) ? true : false;
+}
+void TraitementCommande(String c){
+	if (c.startsWith("M"))
+			{
+				c.remove(0,1);
+				consigneMoteur = c.toInt();
+				if (consigneMoteur > 0)
+				{
+					sensMoteur = 1;
+				}
+				else
+				{
+					sensMoteur = -1;
+				}
+				/*consigneMoteur = abs(consigneMoteur);*/
+			}
+			if (c.startsWith("D"))
+			{
+				c.remove(0, 1);
+				consigneMoteur = degToInc(c.toInt());
+				Serial.println(consigneMoteur);
+				if (consigneMoteur > 0)
+				{
+					sensMoteur = 1;
+				}
+				else
+				{
+					sensMoteur = -1;
+				}
+				/*consigneMoteur = abs(consigneMoteur);*/
+			}
+			
+			if (c.startsWith("OT"))
+			{
+				c.remove(0, 2);
+				bOuvertureTotale = true;
+			}
+			if (c.startsWith("FT"))
+			{
+				c.remove(0, 2);
+				bFermetureTotale = true;
+			}
 }
 void EvolutionGraphe(void) {
 
@@ -214,56 +278,8 @@ void EvolutionGraphe(void) {
 		if (Serial.available())
 		{
 			String s = Serial.readStringUntil('\r');
-			if (s.startsWith("M"))
-			{
-				s.remove(0,1);
-				consigneMoteur = s.toInt();
-				if (consigneMoteur > 0)
-				{
-					sensMoteur = 1;
-				}
-				else
-				{
-					sensMoteur = -1;
-				}
-				/*consigneMoteur = abs(consigneMoteur);*/
-			}
-			if (s.startsWith("D"))
-			{
-				s.remove(0, 1);
-				consigneMoteur = degToInc(s.toInt());
-				Serial.println(consigneMoteur);
-				if (consigneMoteur > 0)
-				{
-					sensMoteur = 1;
-				}
-				else
-				{
-					sensMoteur = -1;
-				}
-				/*consigneMoteur = abs(consigneMoteur);*/
-			}
-			if (s.startsWith("V"))
-			{
-				s.remove(0, 1);
-				if (s.toInt() == 1)
-				{
-					Heltec.VextON();
-				}
-				else {
-					Heltec.VextOFF();
-				}
-			}
-			if (s.startsWith("OT"))
-			{
-				s.remove(0, 2);
-				bOuvertureTotale = true;
-			}
-			if (s.startsWith("FT"))
-			{
-				s.remove(0, 2);
-				bFermetureTotale = true;
-			}
+			TraitementCommande(s);
+			
 		}
 	}
 	if (Etape[FermerVanne] == 1)
@@ -292,10 +308,16 @@ void EvolutionGraphe(void) {
 	if (Etape[EnvoyerMessage])
 	{
 		EtapeActuel = EnvoyerMessage;
-		sendMessage(MASTER, "posMoteur" + String(posMoteur));
+		StaticJsonDocument<96> doc;
+		String json; 
+		doc["Ouverture"] = pPosMoteur();
+		
+		serializeJson(doc,json);
+		sendMessage(MASTER, json);
 	}
 	if (Etape[OuvertureTotale])
 	{
+		sensMoteur = 1;
 		EtapeActuel = OuvertureTotale;
 		bOuvertureTotale = false;
 		Sortie[OuvertureVanne] = 1;
@@ -303,6 +325,7 @@ void EvolutionGraphe(void) {
 	}
 	if (Etape[FermetureTotale])
 	{
+		sensMoteur = -1;
 		EtapeActuel = FermetureTotale;
 		bFermetureTotale = false;
 		
@@ -312,20 +335,7 @@ void EvolutionGraphe(void) {
 	
 }
 
-void asservissementMoteur() {
-	
-	if (sensMoteur>0)
-	{
-		consigneMoteur -= countEncodA;
-		//posMoteur += countEncodA;
-	}
-	else if (sensMoteur < 0) {
-		consigneMoteur += countEncodA;
-		//posMoteur -= countEncodA;
-	}
-	//consigneMoteur -= countEncodA;
-	countEncodA = 0;
-}
+
 
 void miseAjourSortie(void) {
 	digitalWrite(pinOuvertureVanne, Sortie[OuvertureVanne]);
@@ -335,6 +345,7 @@ void miseAjourSortie(void) {
 void stopTempo(int numTempo) {
 	Tempo[numTempo] = 0;
 }
+
  void EncodA() {
 	 if (millis()> dernieredetection + 1)
 	 {
@@ -343,40 +354,60 @@ void stopTempo(int numTempo) {
 		 
 		 if (sensMoteur > 0)
 		 {
-			 posMoteur++;
+			posMoteur++;
 
 		 }
 		 else if (sensMoteur < 0)
 		 {
-			 posMoteur = posMoteur -1;
+			posMoteur = posMoteur -1;
 
 		 }
 	 }
 	 
 }
- void EncodB() {
+
+		
+void EncodB() {
 	 countEncodB += 1;
 }
  void displayData() {
 	 Heltec.display->clear();
-	 Heltec.display->drawString(0, 0, "EA: " + String(countEncodA));
+	 switch (displayMode)
+	 {
+	 case 0:
+		 Heltec.display->drawString(0, 0, "EA: " + String(countEncodA));
 #ifdef pinEncodB
-	Heltec.display->drawString(64, 0, "EB: " + String(countEncodB));
+		Heltec.display->drawString(64, 0, "EB: " + String(countEncodB));
 #endif // pinEncodB
-	Heltec.display->drawString(0, 20, "posMoteur: " + String(posMoteur));
-	Heltec.display->drawString(40, 32, "consigne: " + String(consigneMoteur));
-	if (sensMoteur>0)
-	{
-		Heltec.display->drawString(15, 50, "->");
-	}
-	else if(sensMoteur < 0)
-	{
-		Heltec.display->drawString(15, 50, "<-");
-	}
-	Heltec.display->drawString(25, 50, "Etape: " + String(EtapeToString( EtapeActuel)));
+		Heltec.display->drawString(0, 20, "posMoteur: " + String(posMoteur));
+		Heltec.display->drawString(40, 32, "consigne: " + String(consigneMoteur));
+		if (sensMoteur>0)
+		{
+			Heltec.display->drawString(15, 50, "->");
+		}
+		else if(sensMoteur < 0)
+		{
+			Heltec.display->drawString(15, 50, "<-");
+		}
+		Heltec.display->drawString(25, 50, "Etape: " + String(EtapeToString( EtapeActuel)));
 	
-	 Heltec.display->drawString(5, 55, Entree[FCVanneFerme]? "*" : "");
-	 Heltec.display->drawString(110, 55, Entree[FCVanneOuverte] ? "*" : "");
+	 	Heltec.display->drawString(5, 55, Entree[FCVanneFerme]? "*" : "");
+	 	Heltec.display->drawString(110, 55, Entree[FCVanneOuverte] ? "*" : "");
+		 break;
+	 case 1:
+		Heltec.display->drawString(60,0,String(posMoteur));
+		Heltec.display->drawString(100,0,String(ouvertureMax));
+		
+		Heltec.display->drawString(60,50,String(pPosMoteur()));
+		Heltec.display->drawProgressBar(5,30,100,10,pPosMoteur()*100);
+	 	break;
+	case 2:
+		Heltec.display->drawLogBuffer(0,0);
+		break;
+	 default:
+		break;
+	 }
+	 
 	 Heltec.display->display();
  }
  void debugGrafcet(void) {
@@ -399,10 +430,55 @@ void stopTempo(int numTempo) {
 	 }
 	 Serial.println("-");
  }
+
+void onReceive(int packetSize)
+{
+	if (packetSize == 0) return;          // if there's no packet, return
+
+	//// read packet header bytes:
+	receivedMessage.recipient = LoRa.read();          // recipient address
+	receivedMessage.sender = LoRa.read();            // sender address
+	byte incomingMsgId = LoRa.read();     // incoming msg ID
+	byte incomingLength = LoRa.read();    // incoming msg length
+
+	receivedMessage.Content = "";                 // payload of packet
+
+	while (LoRa.available())             // can't use readString() in callback
+	{
+		receivedMessage.Content += (char)LoRa.read();      // add bytes one by one
+	}
+
+	if (incomingLength != receivedMessage.length())   // check length for error
+	{
+		Serial.println("error: message length does not match length");
+		return;                             // skip rest of function
+	}
+
+	// if the recipient isn't this device or broadcast,
+	if (receivedMessage.recipient != localAddress && receivedMessage.recipient != 0xFF)
+	{
+		Serial.println("This message is not for me.");
+		return;                             // skip rest of function
+	}
+	
+	//// if message is for this device, or broadcast, print details:
+	Serial.println("Received from: 0x" + String(receivedMessage.sender, HEX));
+	Serial.println("Sent to: 0x" + String(receivedMessage.recipient, HEX));
+	Serial.println("Message ID: " + String(incomingMsgId));
+	Serial.println("Message length: " + String(incomingLength));
+	Serial.println("Message: " + receivedMessage.Content);
+	Serial.println("RSSI: " + String(LoRa.packetRssi()));
+	//Serial.println("Snr: " + String(LoRa.packetSnr()));
+	Serial.println();
+	Heltec.display->println("0x" + String(receivedMessage.sender,HEX) + " to 0x" + String(receivedMessage.recipient, HEX) + " " + String(receivedMessage.Content));
+
+	TraitementCommande(receivedMessage.Content);
+}
+
 // the setup function runs once when you press reset or power the board
 void setup() {
 	Heltec.begin(true, true, true, true, BAND);
-
+	Heltec.display->setLogBuffer(10,30);
 	pinMode(pinFCVanneFermee, INPUT_PULLDOWN );
 	pinMode(pinFCVanneOuverte, INPUT_PULLUP);
 
@@ -416,6 +492,11 @@ void setup() {
 	attachInterrupt(pinEncodB, EncodB,CHANGE);
 #endif // pinEncodB
 
+	if (preferences.begin("Turbine",false))
+	{
+		ouvertureMax = preferences.getLong("ouvertureMax",ouvertureMax);
+	}
+	
 	
 	delay(1000);
 
@@ -424,11 +505,30 @@ void setup() {
 	InitTableau();
 	// forçage de l'étape initiale
 	Etape[Init] = 1;
+	LoRa.onReceive(onReceive);
+	LoRa.receive();
 
 }
 
 // the loop function runs over and over again until power down or reset
 void loop() {
+	if ((digitalRead(PRGButton) == LOW) && !previousEtatbutton )
+	{
+		previousEtatbutton = true;
+		if (displayMode < 2 )
+		{
+			displayMode++;
+		}
+		else
+		{
+			displayMode = 0;
+		}
+	} 
+	if (digitalRead(PRGButton) == HIGH)
+	{
+		previousEtatbutton = false;
+	}
+	
 	// acquisition des entrées et stockage dans variables internes
 	acquisitionEntree();
 

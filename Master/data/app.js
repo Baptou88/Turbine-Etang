@@ -1,3 +1,5 @@
+// import swURL from 'sw:./service-worker.js';
+
 // var chartniveau = new Highcharts.Chart({
 //   chart:{ renderTo : 'chart-niveau' },
 //   title: { text: 'Niveau VL53L1X' },
@@ -55,7 +57,7 @@
 //   credits: { enabled: true }
 // });
 
-var chartniveautests;
+//var chartniveautests;
 document.addEventListener('DOMContentLoaded', function () {
   var options = {
     title: { text: 'Niveau VL53L1X' },
@@ -67,11 +69,21 @@ document.addEventListener('DOMContentLoaded', function () {
         text: 'Niveau (%)'
     },
     plotOptions: {
-          line: { animation: false,
-            dataLabels: { enabled: true }
-          },
-           series: { color: '#059e8a' }
-         },
+      line: { 
+        animation: false,
+        dataLabels: { enabled: true }
+      },
+      // series: [
+      //   { 
+      //     color: '#059e8a',
+      //     name: "Niveau" 
+      //   },
+      //   { 
+      //     color: '#05918a',
+      //     name: "Ouverture" 
+      //   }
+      // ]
+    },
     xAxis: {
         //categories: [],
       type: 'datetime',
@@ -84,7 +96,13 @@ document.addEventListener('DOMContentLoaded', function () {
     },
     series: [ {
       name: 'niveau (%)',
-      data: []
+      data: [],
+      color: '#05918a'
+      },
+      { 
+        data:[],
+        name: 'Ouverture (%)',
+        color: '#FFAA8a' 
       }//, {
     //       name: 'John',
     //       data: [5, 7, 3]
@@ -100,7 +118,7 @@ document.addEventListener('DOMContentLoaded', function () {
       data.forEach(element => {
         //console.log(element)
         //console.log([i,element.niveau])
-        //options.series[0].data.push([(new Date()).getTime(),element.niveau])
+        options.series[0].data.push([(new Date()).getTime(),element.niveau])
         
       });
         // options.series[0].data = data;
@@ -125,7 +143,7 @@ function update(element, action) {
             console.log(this.responseText)
 
         } else{
-            console.log (this.status)
+            //console.log (this.status)
         }
     }
     xhr.open("GET", "/update?b=" + board + "&c="+ action, true);
@@ -141,18 +159,18 @@ function maj(){
     if (this.readyState == 4 && this.status == 200) {
         //console.log(this.responseText)
       var myObj = JSON.parse( this.responseText);
-      //console.log(myObj)
+      console.log(myObj)
       for (i in myObj.boards) {
         x = document.getElementById('board-' + myObj.boards[i].localAddress)
         
-        x.getElementsByClassName("message")[0].innerHTML = myObj.boards[i].lastMessage.content
+        x.getElementsByClassName("message")[0].innerHTML = JSON.stringify( myObj.boards[i].lastMessage.content)
         //console.log(myObj.boards[i].lastMessage.content);
-        if (myObj.boards[i].Name = "Etang") {
-          //console.log("Etang " + myObj.boards[i].lastMessage.content)
+        if (myObj.boards[i].Name == "Etang") {
+          
           var message = myObj.boards[i].lastMessage.content
-          //console.log(message)
+          
           var x = (new Date()).getTime()
-          //var yn = Math.floor((Math.random() * 10) + 1);
+          
           var yn = message.Niveau * 100
 
             //ajout donnée niveau dans graph
@@ -162,6 +180,22 @@ function maj(){
           } else {
             //chartniveau.series[0].addPoint([x, yn],true ,false,true);
             chartniveautests.series[0].addPoint([x, yn],true ,false,true);
+          
+          }
+        } else if (myObj.boards[i].Name == "Turbine") {
+          var message = myObj.boards[i].lastMessage.content
+          
+          var x = (new Date()).getTime()
+          
+          var yn = message.Ouverture * 100
+
+            //ajout donnée niveau dans graph
+          if (chartniveautests.series[1].data.length > 40 ) {
+            //chartniveau.series[0].addPoint([x, yn],true ,true,true);
+            chartniveautests.series[1].addPoint([x,yn],true,true,true)
+          } else {
+            //chartniveau.series[0].addPoint([x, yn],true ,false,true);
+            chartniveautests.series[1].addPoint([x, yn],true ,false,true);
           
           }
         }
@@ -177,4 +211,36 @@ function maj(){
   xhr.send();
   setTimeout(maj,10000);
 }
+
+
+// //-------------PWA
+
+
+// // Register the service worker
+// if ('serviceWorker' in navigator) {
+//   // Wait for the 'load' event to not block other work
+//   window.addEventListener('load', async () => {
+//     // Try to register the service worker.
+//     try {
+//       const reg = await navigator.serviceWorker.register(swURL);
+//       console.log('Service worker registered! 😎', reg);
+//     } catch (err) {
+//       console.log('😥 Service worker registration failed: ', err);
+//     }
+//   });
+// }
+// window.addEventListener('DOMContentLoaded', async () => {
+//   // Set up the editor
+//   const { Editor } = await import('./app/editor.js');
+//   const editor = new Editor(document.body);
+
+//   // Set up the menu
+//   const { Menu } = await import('./app/menu.js');
+//   new Menu(document.querySelector('.actions'), editor);
+
+//   // Set the initial state in the editor
+//   const defaultText = `# Welcome to PWA Edit!\n\nTo leave the editing area, press the \`esc\` key, then \`tab\` or \`shift+tab\`.`;
+
+//   editor.setContent(defaultText);
+// });
 

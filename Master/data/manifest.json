@@ -1,0 +1,16 @@
+{
+  "name": "PWA TurbineEtang",
+  "short_name": "PWA TurbineEtang",
+  "display": "standalone",
+  "start_url": "/index.html",
+  "icons": [
+    {
+      "src": "icons/logo-192.png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "icons/logo-144.png",
+      "sizes": "144x144"
+    }
+  ]
+}

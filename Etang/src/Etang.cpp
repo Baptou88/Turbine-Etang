@@ -151,7 +151,7 @@ void TraitementCommande(String Commande){
 		preferences.putInt("NiveauMin",NiveauMin);
 		Heltec.display->println("Save EEPROM ok !");
 	}
-	if (Commande.startsWith("SLEEP"))
+	if (Commande== "SLEEP")
 	{
 		
 		Serial.println("Mise en Veille");
@@ -159,6 +159,16 @@ void TraitementCommande(String Commande){
 		Heltec.display->println("Mise en Veille");
 		delay(1000);
 		esp_sleep_enable_timer_wakeup(10000000); //10sec
+		esp_deep_sleep_start();
+	}
+	if (Commande.startsWith("SLEEPTP"))
+	{
+		
+		Serial.println("Mise en Veille");
+	
+		Heltec.display->println("Mise en Veille");
+		delay(1000);
+		esp_sleep_enable_touchpad_wakeup();
 		esp_deep_sleep_start();
 	}
 }
@@ -224,13 +234,14 @@ void setup() {
 		Serial.println("Ok init VL53L1X");
 	}
 	sensor.setDistanceMode(VL53L1X::Long);
-	sensor.setMeasurementTimingBudget(50000);
+	sensor.setMeasurementTimingBudget(100000);//50000
 	
 	// Start continuous readings at a rate of one measurement every 50 ms (the
 	// inter-measurement period). This period should be at least as long as the
 	// timing budget.
 	sensor.startContinuous(50);
-
+	// sensor.setROICenter(64);
+	sensor.setROISize(1,1);
 	LoRa.onReceive(onReceive);
 	LoRa.receive();
 
@@ -260,8 +271,9 @@ void loop() {
 	{
 		previousSend = millis();
 		//sendData();
-		StaticJsonDocument<96> doc;
+		StaticJsonDocument<128> doc;
 		String json; 
+		doc["mesure"] = sensor.ranging_data.range_mm;
 		doc["Niveau"] = PNiveau();
 		doc["RangeStatus"] = VL53L1X::rangeStatusToString( sensor.ranging_data.range_status);
 		serializeJson(doc,json);
