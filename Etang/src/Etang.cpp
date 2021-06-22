@@ -66,8 +66,8 @@ void displayData(void)
 		Heltec.display->drawString(0, 40, sensor.rangeStatusToString(sensor.ranging_data.range_status));
 		AfficherNiveauJauge();
 
-		Heltec.display->drawString(60,52,"Max:" + String(NiveauMax));
-		Heltec.display->drawString(60,2,"Min:" + String(NiveauMin));
+		Heltec.display->drawString(60,2,"Max:" + String(NiveauMax));
+		Heltec.display->drawString(60,52,"Min:" + String(NiveauMin));
 		break;
 	case 1:
 		Heltec.display->drawString(0, 10, "Range   " + String(sensor.ranging_data.range_mm));

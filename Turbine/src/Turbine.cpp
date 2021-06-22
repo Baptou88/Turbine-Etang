@@ -29,6 +29,7 @@ byte msgCount = 0;
 //encodeur
 #define pinEncodA  37
 #define pinEncodB  36
+#define pinTaqui 35
 Preferences preferences;
 
 const int pinOuvertureVanne = 12;

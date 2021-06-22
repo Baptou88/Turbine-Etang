@@ -162,8 +162,10 @@ function maj(){
       console.log(myObj)
       for (i in myObj.boards) {
         x = document.getElementById('board-' + myObj.boards[i].localAddress)
-        
-        x.getElementsByClassName("message")[0].innerHTML = JSON.stringify( myObj.boards[i].lastMessage.content)
+        modal = document.getElementById('modal'+  myObj.boards[i].Name)
+        //x.getElementsByClassName("message")[0].innerHTML = JSON.stringify( myObj.boards[i].lastMessage.content)
+
+        modal.getElementsByClassName("message")[0].innerHTML = JSON.stringify( myObj.boards[i].lastMessage.content)
         //console.log(myObj.boards[i].lastMessage.content);
         if (myObj.boards[i].Name == "Etang") {
           

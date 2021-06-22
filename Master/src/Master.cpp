@@ -34,11 +34,11 @@ AsyncWebServer serverHTTP(80);	//80 est le port standard du protocole HTTP
 
 // Definition de parametre Wifi
 
-//const char* SSID = "Livebox-44C1";
-//const char* PASSWORD = "20AAF66FCE1928F64292F3E28E";
+const char* SSID = "Livebox-44C1";
+const char* PASSWORD = "20AAF66FCE1928F64292F3E28E";
 
-const char* SSID = "Honor 10";
-const char* PASSWORD = "97540708";
+//const char* SSID = "Honor 10";
+//const char* PASSWORD = "97540708";
 const char* HOSTNAME = "ESP32LoRa";
 
 byte localAddress = 0x0A;
@@ -199,12 +199,13 @@ String processor(const String& var) {
 				
 			retour += "<div class=\"modal-content\">\n";
 			retour += "<div class=\"modal-header\">\n";
-			retour += "<h4 class=\"modal-title\">Modal Header</h4>\n";
+			retour += "<h4 class=\"modal-title\">"+ allBoard[i]->Name + " </h4>\n";
 			retour += "<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"modal\" aria-label=\"Close\"></button>\n"; //&times;
 			
 				retour+= "</div>\n";
 				retour+= "<div class=\"modal-body\">\n";
-				retour+= "<p>Some text in the modal.</p>\n";
+				retour+= "<p>Address: " + String(allBoard[i]->localAddress) + "</p>\n";
+				retour+= "<pre class=\"message\">" + String(allBoard[i]->LastMessage.Content) +"</pre>";
 				retour+= "</div>";
 				retour+= "<div clas =\"modal-footer\">\n";
 				retour+= "<button type=\"button\" class=\"btn btn-default\" data-bs-dismiss = \"modal\">Close</button>\n";
