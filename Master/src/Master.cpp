@@ -349,6 +349,7 @@ void RouteHttp() {
 			} else
 			{
 				sendMessage( request->getParam("b")->value().toInt() ,request->getParam("c")->value());
+				LoRa.receive();
 			}
 			
 			
