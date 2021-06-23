@@ -1,19 +1,24 @@
 
-[
+{
+    "data": [
     {
         "name": "niveau",
-        "niveau":4
+        "niveau":4,
+        "ouverture": 25
     },
     {
         "name": "niveau",
-        "niveau":6
+        "niveau":6,
+        "ouverture": 30
     },
     {
         "name": "niveau",
-        "niveau":7
+        "niveau":7,
+        "ouverture": 18
     },
     {
         "name": "niveau",
-        "niveau":5
+        "niveau":5,
+        "ouverture": 10
     }
-]
+]}

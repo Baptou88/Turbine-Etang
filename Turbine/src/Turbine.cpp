@@ -38,6 +38,8 @@ const byte pinFCVanneOuverte = 39;
 const byte pinFCVanneFermee = 38;
 volatile long countEncodA = 0;
 volatile long countEncodB = 0;
+volatile long countTaqui = 0;
+
 unsigned long dernieredetection = 0;
 
 bool bOuvertureTotale = false;
@@ -314,7 +316,10 @@ void EvolutionGraphe(void) {
 		doc["Ouverture"] = pPosMoteur();
 		
 		serializeJson(doc,json);
+		Serial.println(json);
 		sendMessage(MASTER, json);
+		LoRa.receive();
+		
 	}
 	if (Etape[OuvertureTotale])
 	{
@@ -405,6 +410,12 @@ void EncodB() {
 	case 2:
 		Heltec.display->drawLogBuffer(0,0);
 		break;
+	case 3:
+		#ifdef pinTaqui
+			Heltec.display->drawString(45,0,"Taqui");
+			Heltec.display->drawString(20,0,String(countTaqui));
+		#endif
+		break;
 	 default:
 		break;
 	 }
@@ -474,8 +485,13 @@ void onReceive(int packetSize)
 	Heltec.display->println("0x" + String(receivedMessage.sender,HEX) + " to 0x" + String(receivedMessage.recipient, HEX) + " " + String(receivedMessage.Content));
 
 	TraitementCommande(receivedMessage.Content);
-}
 
+	
+	
+}
+void Taqui(void){
+
+}
 // the setup function runs once when you press reset or power the board
 void setup() {
 	Heltec.begin(true, true, true, true, BAND);
@@ -492,6 +508,11 @@ void setup() {
 	pinMode(pinEncodB, INPUT);
 	attachInterrupt(pinEncodB, EncodB,CHANGE);
 #endif // pinEncodB
+
+#ifdef pinTaqui
+	pinMode(pinTaqui, INPUT);
+	attachInterrupt(pinEncodB, Taqui,RISING);
+#endif
 
 	if (preferences.begin("Turbine",false))
 	{
@@ -516,7 +537,7 @@ void loop() {
 	if ((digitalRead(PRGButton) == LOW) && !previousEtatbutton )
 	{
 		previousEtatbutton = true;
-		if (displayMode < 2 )
+		if (displayMode < 3 )
 		{
 			displayMode++;
 		}

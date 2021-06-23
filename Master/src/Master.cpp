@@ -19,7 +19,7 @@
 //#include "HttpServer.h"
 #include "TurbineEtangLib.h"
 #include <FS.h>
-
+#include <ArduinoJson.h>
 
 
 #define BAND 868E6
@@ -71,10 +71,15 @@ public:
 	unsigned long lastmessage = 0;
 	Message LastMessage;
 	String toJson() {
+		if (this->localAddress == MASTER)
+		{
+			this->lastmessage = millis();
+		}
 		
 		return "{ \"Name\" : \"" + Name + "\"," +
 			"\"localAddress\" : " + localAddress + "," +
-			"\"lastMessage\" : " + this->LastMessage.toJson() + "" +
+			"\"lastMessage\" : " + this->LastMessage.toJson() + "," +
+			"\"lastUpdate\" : " + lastmessage + "" + 
 			"}";
 	};
 	Command Commands[10];
@@ -171,7 +176,7 @@ String processor(const String& var) {
 			retour += "<h4 class= \"card-title\">" + String(allBoard[i]->Name) + " <span class=\"text-muted\"> " + String(allBoard[i]->localAddress, HEX) +   " " + String(allBoard[i]->connected) + "</span></h4>\n";
 			
 			retour += "<div class = \"card-body\">\n";
-			retour += "<h5>LastMessage: </h5><div class=\"message\">" + allBoard[i]->LastMessage.Content + "</div>\n";
+			//retour += "<h5>LastMessage: </h5><div class=\"message\">" + allBoard[i]->LastMessage.Content + "</div>\n";
 			for (byte j = 0; j < 10; j++) 
 			{
 				if (allBoard[i]->Commands[j].Name != "")
@@ -206,6 +211,7 @@ String processor(const String& var) {
 				retour+= "<div class=\"modal-body\">\n";
 				retour+= "<p>Address: " + String(allBoard[i]->localAddress) + "</p>\n";
 				retour+= "<pre class=\"message\">" + String(allBoard[i]->LastMessage.Content) +"</pre>";
+				retour+= "<p>Derniere update : <span class=\"lastUpdate\">" + String(allBoard[i]->lastmessage) +"</span> sec</p>";
 				retour+= "</div>";
 				retour+= "<div clas =\"modal-footer\">\n";
 				retour+= "<button type=\"button\" class=\"btn btn-default\" data-bs-dismiss = \"modal\">Close</button>\n";
@@ -236,6 +242,7 @@ void InitBoard(void) {
 
 	localboard.AddCommand("VextOff",0,"button","VEXTOFF");
 	localboard.AddCommand("VextOn",1,"button","VEXTON");
+	localboard.AddCommand("Save data", 2,"button","SDATA");
 }
 void TraitementCommande(String c){
 	if (c == "VEXTON")
@@ -248,8 +255,74 @@ void TraitementCommande(String c){
 		Serial.println("VEXTOFF");
 		Heltec.VextOFF();
 	}
+	if (c == "SDATA")
+	{
+		DynamicJsonDocument doc(1024);
+ 
+		JsonObject obj;
+		// Open file
+		File file = SPIFFS.open("/data.json");
+		if (!file) {
+			Serial.println(F("Failed to create file, probably not exists"));
+			Serial.println(F("Create an empty one!"));
+			obj = doc.to<JsonObject>();
+		} else {
 	
+			DeserializationError error = deserializeJson(doc, file);
+			if (error) {
+				// if the file didn't open, print an error:
+				Serial.println(F("Error parsing JSON "));
+				Serial.println(error.c_str());
+	
+				// create an empty JSON object
+				obj = doc.to<JsonObject>();
+			} else {
+				// GET THE ROOT OBJECT TO MANIPULATE
+				obj = doc.as<JsonObject>();
+			}
+		
+ 
+		}
+	
+		// close the file already loaded:
+		file.close();
+	
+		obj[F("millis")] = millis();
+	
+		JsonArray data;
+		// Check if exist the array
+		if (!obj.containsKey(F("data"))) {
+			Serial.println(F("Not find data array! Crete one!"));
+			data = obj.createNestedArray(F("data"));
+		} else {
+			Serial.println(F("Find data array!"));
+			data = obj[F("data")];
+		}
+	
+		// create an object to add to the array
+		JsonObject objArrayData = data.createNestedObject();
+	
+	objArrayData["ouverture"] = 80;
+		objArrayData["niveau"] = 50;
+		objArrayData["name"] = "niveau";
+	
+		SPIFFS.remove("/data.json");
+	
+		// Open file for writing
+		file = SPIFFS.open("/data.json", FILE_WRITE);
+	
+		// Serialize JSON to file
+		if (serializeJson(doc, file) == 0) {
+			Serial.println(F("Failed to write to file"));
+		}
+	
+		// Close the file
+		file.close();
+	
+	}
+		
 }
+
 void RouteHttp() {
 	serverHTTP.onNotFound([](AsyncWebServerRequest* request) {
 		request->send_P(404, "text/html", "404 notfound");
@@ -285,7 +358,8 @@ void RouteHttp() {
 		
 	});
 	serverHTTP.on("/maj", HTTP_GET, [](AsyncWebServerRequest* request) {
-		String retour = "{ \"boards\" : [" + allBoard[0]->toJson() + "," + allBoard[1]->toJson() + "," + allBoard[2]->toJson() + "]}";
+		String retour = "{ \"msSystem\" :" + String(millis()) + "," +
+		"\"boards\" : [" + allBoard[0]->toJson() + "," + allBoard[1]->toJson() + "," + allBoard[2]->toJson() + "]}";
 		//Serial.println("maj" + String(retour));
 		request->send(200, "application/json", retour);
 		});
@@ -421,11 +495,11 @@ void onReceive(int packetSize)
 		Serial.println("error: message length does not match length");
 		return;                             // skip rest of function
 	}
-
+	Serial.println(receivedMessage.Content);
 	// if the recipient isn't this device or broadcast,
 	if (receivedMessage.recipient != localAddress && receivedMessage.recipient != 0xFF)
 	{
-		Serial.println("This message is not for me.");
+		
 		return;                             // skip rest of function
 	}
 	switch (receivedMessage.sender)
@@ -434,12 +508,12 @@ void onReceive(int packetSize)
 		
 		break;
 	case ETANG:
-		
+		allBoard[1]->lastmessage = millis();
 		allBoard[1]->LastMessage = receivedMessage;
 		
 		break;
 	case TURBINE:
-		
+		allBoard[2]->lastmessage = millis();
 		allBoard[2]->LastMessage = receivedMessage;
 		break;
 	default:

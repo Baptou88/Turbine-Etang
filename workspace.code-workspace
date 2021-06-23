@@ -18,7 +18,8 @@
     ],
     "settings": {
         "files.associations": {
-            "random": "cpp"
+            "random": "cpp",
+            "xutility": "cpp"
         }
     }
 }

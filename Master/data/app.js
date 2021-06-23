@@ -113,17 +113,18 @@ document.addEventListener('DOMContentLoaded', function () {
   Highcharts.ajax({  
     url: 'data.json',  
     success: function(data) {
-      //console.log(data)
+      console.log( data)
       var i = 0;
-      data.forEach(element => {
+      data.data.forEach(element => {
         //console.log(element)
         //console.log([i,element.niveau])
         options.series[0].data.push([(new Date()).getTime(),element.niveau])
-        
+        options.series[1].data.push([(new Date()).getTime(),element.ouverture])
       });
         // options.series[0].data = data;
         chartniveautests = Highcharts.chart('chart-niveautests', options );
         maj()
+        majTimer();
       }  ,
       error: function (e, t) {  
         console.error(e, t);  
@@ -131,6 +132,7 @@ document.addEventListener('DOMContentLoaded', function () {
   });
   //maj();
  });
+
 function update(element, action) {
     console.log(element)
     console.log(action)
@@ -166,6 +168,7 @@ function maj(){
         //x.getElementsByClassName("message")[0].innerHTML = JSON.stringify( myObj.boards[i].lastMessage.content)
 
         modal.getElementsByClassName("message")[0].innerHTML = JSON.stringify( myObj.boards[i].lastMessage.content)
+        modal.getElementsByClassName("lastUpdate")[0].innerHTML =  (myObj["msSystem"] - myObj.boards[i].lastUpdate) /1000
         //console.log(myObj.boards[i].lastMessage.content);
         if (myObj.boards[i].Name == "Etang") {
           
@@ -214,6 +217,12 @@ function maj(){
   setTimeout(maj,10000);
 }
 
+function majTimer(){
+  Array.from(document.getElementsByClassName("lastUpdate")).forEach(function(item){
+    item.innerHTML = parseFloat(item.innerHTML) + 2
+  });
+  setTimeout(majTimer,2000);
+};
 
 // //-------------PWA
 
