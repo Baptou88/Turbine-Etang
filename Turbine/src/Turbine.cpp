@@ -29,7 +29,8 @@ byte msgCount = 0;
 //encodeur
 #define pinEncodA  37
 #define pinEncodB  36
-#define pinTaqui 35
+#define pinTaqui 32
+#define pinIntensite 33
 Preferences preferences;
 
 const int pinOuvertureVanne = 12;
@@ -38,9 +39,20 @@ const byte pinFCVanneOuverte = 39;
 const byte pinFCVanneFermee = 38;
 volatile long countEncodA = 0;
 volatile long countEncodB = 0;
-volatile long countTaqui = 0;
 
-unsigned long dernieredetection = 0;
+// Taquimetre
+unsigned long previousMillisTaqui = 0;
+volatile unsigned long countTaqui = 0;
+float rpmTurbine = 0;
+unsigned long previousCalculTaqui = 0;
+
+
+
+double currentValue = 0;
+
+float tourMoteurVanne = 18 / float(44); 
+
+unsigned long dernieredetectionEncodA = 0;
 
 bool bOuvertureTotale = false;
 bool bFermetureTotale = false;
@@ -62,6 +74,7 @@ enum Etapes
 	OuvrirVanne,
 	FermerVanne,
 	StopMoteur,
+	StopMoteurIntensite,
 	EnvoyerMessage,
 	OuvertureTotale,
 	FermetureTotale,
@@ -236,6 +249,7 @@ void EvolutionGraphe(void) {
 	Transition[9] = Etape[AttenteOrdre] && bFermetureTotale;
 	Transition[10] = Etape[OuvertureTotale] && (Entree[FCVanneOuverte] == true);
 	Transition[11] = Etape[FermetureTotale] && (Entree[FCVanneFerme] == true);
+	
 
 	// Desactivation des etapes
 	if (Transition[0]) Etape[Init] = 0;
@@ -314,7 +328,7 @@ void EvolutionGraphe(void) {
 		StaticJsonDocument<96> doc;
 		String json; 
 		doc["Ouverture"] = pPosMoteur();
-		
+		doc["Taqui"] = rpmTurbine;
 		serializeJson(doc,json);
 		Serial.println(json);
 		sendMessage(MASTER, json);
@@ -353,9 +367,9 @@ void stopTempo(int numTempo) {
 }
 
  void EncodA() {
-	 if (millis()> dernieredetection + 1)
+	 if (millis()> dernieredetectionEncodA + 1)
 	 {
-		 dernieredetection = millis();
+		 dernieredetectionEncodA = millis();
 		 countEncodA += 1;
 		 
 		 if (sensMoteur > 0)
@@ -375,6 +389,13 @@ void stopTempo(int numTempo) {
 		
 void EncodB() {
 	 countEncodB += 1;
+}
+float mesureTaqui(void){
+	float rpm = countTaqui * 60000 / float((millis() - previousMillisTaqui));
+	countTaqui = 0;
+	previousMillisTaqui = millis();
+
+	return rpm;
 }
  void displayData() {
 	 Heltec.display->clear();
@@ -410,12 +431,20 @@ void EncodB() {
 	case 2:
 		Heltec.display->drawLogBuffer(0,0);
 		break;
+
 	case 3:
 		#ifdef pinTaqui
-			Heltec.display->drawString(45,0,"Taqui");
-			Heltec.display->drawString(20,0,String(countTaqui));
+			Heltec.display->drawString(0,0,"Taqui");
+			Heltec.display->drawString(40,0,String(rpmTurbine));
+			Heltec.display->drawString(100,0,"RPM");
+			
+		#endif
+		#ifdef pinIntensite
+			Heltec.display->drawString(5,15,"Intensite: ");
+			Heltec.display->drawString(60,15,String(currentValue));
 		#endif
 		break;
+
 	 default:
 		break;
 	 }
@@ -490,7 +519,14 @@ void onReceive(int packetSize)
 	
 }
 void Taqui(void){
+ countTaqui++;
+}
 
+void mesureIntensite(void){
+	int adcValue = analogRead(pinIntensite);
+
+	double  adcVoltage = (adcValue / 1024.0) * 5000;
+	currentValue = ((adcVoltage - 2500) / 66);  //int offsetVoltage = 2500;
 }
 // the setup function runs once when you press reset or power the board
 void setup() {
@@ -502,7 +538,7 @@ void setup() {
 	pinMode(pinFermetureVanne, OUTPUT);
 	pinMode(pinOuvertureVanne, OUTPUT);
 
-	pinMode(pinEncodA, INPUT);
+	pinMode(pinEncodA, INPUT_PULLUP);
 	attachInterrupt(pinEncodA, EncodA,CHANGE);
 #ifdef pinEncodB
 	pinMode(pinEncodB, INPUT);
@@ -511,7 +547,10 @@ void setup() {
 
 #ifdef pinTaqui
 	pinMode(pinTaqui, INPUT);
-	attachInterrupt(pinEncodB, Taqui,RISING);
+	attachInterrupt(pinTaqui, Taqui,RISING);
+#endif
+#ifdef pinIntensite
+	pinMode(pinIntensite,INPUT);
 #endif
 
 	if (preferences.begin("Turbine",false))
@@ -562,6 +601,14 @@ void loop() {
 	// evolution du grafcet
 	EvolutionGraphe();
 
+	//todo changer de place
+	mesureIntensite();
+	if (millis()> previousCalculTaqui + 2000)
+	{
+		previousCalculTaqui = millis();
+		rpmTurbine = mesureTaqui();
+	}
+	
 	// mise à jour des sorties
 	miseAjourSortie();
 	displayData();
