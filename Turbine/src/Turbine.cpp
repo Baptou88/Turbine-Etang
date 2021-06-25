@@ -10,6 +10,7 @@
 #include <Preferences.h>
 #include <ArduinoJSON.h>
 
+
 #define BAND 868E6
 #define PRGButton 0
 
@@ -18,6 +19,7 @@
 //entree
 #define FCVanneOuverte 0
 #define FCVanneFerme 1
+#define EPRGBUTTON 2
 
 //sortie
 #define OuvertureVanne 0
@@ -45,7 +47,6 @@ unsigned long previousMillisTaqui = 0;
 volatile unsigned long countTaqui = 0;
 float rpmTurbine = 0;
 unsigned long previousCalculTaqui = 0;
-
 
 
 double currentValue = 0;
@@ -124,10 +125,17 @@ int FrontMontant[TAILLETAB];
 int Sortie[TAILLETAB];
 unsigned long Tempo[TAILLETAB];
 
+//conversion degrés vanne en increment
+int degvanneToInc(int degVanne){
+	return degToInc(degVanne) / tourMoteurVanne;
+}
 
+//conversion degrés moteur en increment
 int degToInc(int degres) {
 	return ((degres * incCodeuse) / 360);
 }
+
+//Asservissement Moteur
 void asservissementMoteur() {
 	
 	if (sensMoteur>0)
@@ -142,6 +150,8 @@ void asservissementMoteur() {
 	//consigneMoteur -= countEncodA;
 	countEncodA = 0;
 }
+
+//pourcentage ouverture vanne
 float pPosMoteur(){
 	return  float(posMoteur) / float(ouvertureMax);
 }
@@ -190,6 +200,7 @@ bool finTempo(int numTempo) {
 void acquisitionEntree(void) {
 	Entree[FCVanneOuverte] = digitalRead(pinFCVanneOuverte) ? true :false ;
 	Entree[FCVanneFerme] = digitalRead(pinFCVanneFermee) ? true : false;
+	Entree[EPRGBUTTON] = digitalRead(PRGButton)? true : false;
 }
 void TraitementCommande(String c){
 	if (c.startsWith("M"))
@@ -558,7 +569,8 @@ void setup() {
 		ouvertureMax = preferences.getLong("ouvertureMax",ouvertureMax);
 	}
 	
-	
+	 
+
 	delay(1000);
 
 	Heltec.display->clear();

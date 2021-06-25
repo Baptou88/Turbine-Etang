@@ -20,6 +20,7 @@
 #include "TurbineEtangLib.h"
 #include <FS.h>
 #include <ArduinoJson.h>
+#include <time.h>
 
 
 #define BAND 868E6
@@ -31,6 +32,9 @@ SPIClass spi1;
 // Set web server port number to 80
 //WiFiServer serverHTTP(80);	//80 est le port standard du protocole HTTP
 AsyncWebServer serverHTTP(80);	//80 est le port standard du protocole HTTP
+
+
+const char* ntpServer = "pool.ntp.org";
 
 // Definition de parametre Wifi
 
@@ -239,6 +243,8 @@ void InitBoard(void) {
 
 	TurbineBoard.AddCommand("OuvertureTotale", 0, "button", "OT");
 	TurbineBoard.AddCommand("FermetureTotale", 1, "button", "FT");
+	TurbineBoard.AddCommand("+1T  Moteur",2,"button","D360");
+	TurbineBoard.AddCommand("-1T  Moteur",3,"button","D-360");
 
 	localboard.AddCommand("VextOff",0,"button","VEXTOFF");
 	localboard.AddCommand("VextOn",1,"button","VEXTON");
@@ -595,10 +601,21 @@ void InitSD(void) {
 	delay(2000);
 
 }
+void printLocalTime()
+{
+  struct tm timeinfo;
+  if(!getLocalTime(&timeinfo)){
+    Serial.println("Failed to obtain time");
+    return;
+  }
+  Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
+}
+
 void setup() {
 	Heltec.begin(true, true, true, true, BAND);
 	//InitSD();
 	initWifi();
+	configTime(3600, 3600, ntpServer);
 	InitBoard();
 	Heltec.display->clear();
 	if (!SPIFFS.begin(true)) {
@@ -648,6 +665,8 @@ void loop() {
 		previousEtatbutton = false;
 	}
 	displayData();
+
+	//printLocalTime();
 	//----------------------------------------Serveur HTTP
 	
 	/*WiFiClient client = serverHTTP.available();

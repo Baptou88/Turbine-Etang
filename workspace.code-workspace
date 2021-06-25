@@ -19,7 +19,8 @@
     "settings": {
         "files.associations": {
             "random": "cpp",
-            "xutility": "cpp"
+            "xutility": "cpp",
+            "functional": "cpp"
         }
     }
 }
