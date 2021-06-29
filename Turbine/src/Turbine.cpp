@@ -9,6 +9,7 @@
 #include "TurbineEtangLib.h"
 #include <Preferences.h>
 #include <ArduinoJSON.h>
+#include <Adafruit_INA260.h>
 
 
 #define BAND 868E6
@@ -29,10 +30,19 @@ byte localAddress = 0x0B;
 byte msgCount = 0;
 
 //encodeur
-#define pinEncodA  37
-#define pinEncodB  36
+#define pinEncodA  36
+#define pinEncodB  37
 #define pinTaqui 32
-#define pinIntensite 33
+
+
+//intensite
+Adafruit_INA260 ina260 = Adafruit_INA260();
+double currentValue = 0;
+unsigned long previousMesureIntensite = 0;
+int maxIntensite = 1600; //mA
+
+String StatutVanne = "Arret";
+
 Preferences preferences;
 
 const int pinOuvertureVanne = 12;
@@ -49,7 +59,7 @@ float rpmTurbine = 0;
 unsigned long previousCalculTaqui = 0;
 
 
-double currentValue = 0;
+
 
 float tourMoteurVanne = 18 / float(44); 
 
@@ -110,6 +120,9 @@ String EtapeToString(Etapes E) {
 	case FermetureTotale:
 		return "FermetureTotale";
 		break;
+	case StopMoteurIntensite:
+		return "StopMoteurIntensite";
+		break;
 	default:
 		return "default";
 		break;
@@ -125,16 +138,16 @@ int FrontMontant[TAILLETAB];
 int Sortie[TAILLETAB];
 unsigned long Tempo[TAILLETAB];
 
-//conversion degrés vanne en increment
-int degvanneToInc(int degVanne){
-	return degToInc(degVanne) / tourMoteurVanne;
-}
+
 
 //conversion degrés moteur en increment
 int degToInc(int degres) {
 	return ((degres * incCodeuse) / 360);
 }
-
+//conversion degrés vanne en increment
+int degvanneToInc(int degVanne){
+	return degToInc(degVanne) / tourMoteurVanne;
+}
 //Asservissement Moteur
 void asservissementMoteur() {
 	
@@ -204,45 +217,54 @@ void acquisitionEntree(void) {
 }
 void TraitementCommande(String c){
 	if (c.startsWith("M"))
-			{
-				c.remove(0,1);
-				consigneMoteur = c.toInt();
-				if (consigneMoteur > 0)
-				{
-					sensMoteur = 1;
-				}
-				else
-				{
-					sensMoteur = -1;
-				}
-				/*consigneMoteur = abs(consigneMoteur);*/
-			}
-			if (c.startsWith("D"))
-			{
-				c.remove(0, 1);
-				consigneMoteur = degToInc(c.toInt());
-				Serial.println(consigneMoteur);
-				if (consigneMoteur > 0)
-				{
-					sensMoteur = 1;
-				}
-				else
-				{
-					sensMoteur = -1;
-				}
-				/*consigneMoteur = abs(consigneMoteur);*/
-			}
-			
-			if (c.startsWith("OT"))
-			{
-				c.remove(0, 2);
-				bOuvertureTotale = true;
-			}
-			if (c.startsWith("FT"))
-			{
-				c.remove(0, 2);
-				bFermetureTotale = true;
-			}
+	{
+		c.remove(0,1);
+		consigneMoteur = c.toInt();
+		if (consigneMoteur > 0)
+		{
+			sensMoteur = 1;
+		}
+		else
+		{
+			sensMoteur = -1;
+		}
+		/*consigneMoteur = abs(consigneMoteur);*/
+	}
+	if (c.startsWith("D"))
+	{
+		c.remove(0, 1);
+		consigneMoteur = degToInc(c.toInt());
+		Serial.println(consigneMoteur);
+		if (consigneMoteur > 0)
+		{
+			sensMoteur = 1;
+		}
+		else
+		{
+			sensMoteur = -1;
+		}
+		/*consigneMoteur = abs(consigneMoteur);*/
+	}
+	
+	if (c.startsWith("OT"))
+	{
+		c.remove(0, 2);
+		bOuvertureTotale = true;
+	}
+	if (c.startsWith("FT"))
+	{
+		c.remove(0, 2);
+		bFermetureTotale = true;
+	}
+	if (c == "SMIN")
+	{
+		posMoteur = 0;
+	}
+	if (c == "SMAX")
+	{
+		ouvertureMax = posMoteur;
+	}
+	
 }
 void EvolutionGraphe(void) {
 
@@ -260,7 +282,10 @@ void EvolutionGraphe(void) {
 	Transition[9] = Etape[AttenteOrdre] && bFermetureTotale;
 	Transition[10] = Etape[OuvertureTotale] && (Entree[FCVanneOuverte] == true);
 	Transition[11] = Etape[FermetureTotale] && (Entree[FCVanneFerme] == true);
-	
+	Transition[12] = Etape[OuvrirVanne] && currentValue> maxIntensite;
+	Transition[13] = Etape[FermerVanne] && currentValue> maxIntensite;
+	Transition[14] = Etape[OuvertureTotale] && currentValue> maxIntensite;
+	Transition[15] = Etape[FermetureTotale] && currentValue> maxIntensite;
 
 	// Desactivation des etapes
 	if (Transition[0]) Etape[Init] = 0;
@@ -275,6 +300,10 @@ void EvolutionGraphe(void) {
 	if (Transition[9]) Etape[AttenteOrdre] = 0;
 	if (Transition[10]) Etape[OuvertureTotale] = 0;
 	if (Transition[11]) Etape[FermetureTotale] = 0;
+	if (Transition[12]) Etape[OuvrirVanne] = 0;
+	if (Transition[13]) Etape[FermerVanne] = 0;
+	if (Transition[14]) Etape[OuvertureTotale] = 0;
+	if (Transition[15]) Etape[FermetureTotale] = 0;
 
 	// Activation des etapes
 	if (Transition[0]) Etape[AttenteOrdre] = 1;
@@ -289,6 +318,10 @@ void EvolutionGraphe(void) {
 	if (Transition[9]) Etape[FermetureTotale] = 1;
 	if (Transition[10]) Etape[StopMoteur] = 1;
 	if (Transition[11]) Etape[StopMoteur] = 1;
+	if (Transition[12]) Etape[StopMoteurIntensite] =1;
+	if (Transition[13]) Etape[StopMoteurIntensite] =1;
+	if (Transition[14]) Etape[StopMoteurIntensite] =1;
+	if (Transition[15]) Etape[StopMoteurIntensite] =1;
 
 	// Gestion des actions sur les etapes
 	/*if (Etape[START] == 1) {
@@ -313,6 +346,7 @@ void EvolutionGraphe(void) {
 	if (Etape[FermerVanne] == 1)
 	{
 		EtapeActuel = FermerVanne;
+		StatutVanne = "Fermeture";
 		Sortie[FermetureVanne] = 1;
 		asservissementMoteur();
 	}
@@ -320,6 +354,7 @@ void EvolutionGraphe(void) {
 	if (Etape[OuvrirVanne] == 1)
 	{
 		EtapeActuel = OuvrirVanne;
+		StatutVanne = "Ouverture";
 		Sortie[OuvertureVanne] = 1;
 		asservissementMoteur();
 	}
@@ -327,6 +362,7 @@ void EvolutionGraphe(void) {
 	if (Etape[StopMoteur])
 	{
 		consigneMoteur = 0;
+		StatutVanne = "Arret";
 		startTempo(0, 1000);
 		EtapeActuel = StopMoteur;
 		Sortie[OuvertureVanne] = 0;
@@ -340,6 +376,7 @@ void EvolutionGraphe(void) {
 		String json; 
 		doc["Ouverture"] = pPosMoteur();
 		doc["Taqui"] = rpmTurbine;
+		doc["StatutVanne"] = StatutVanne;
 		serializeJson(doc,json);
 		Serial.println(json);
 		sendMessage(MASTER, json);
@@ -350,6 +387,7 @@ void EvolutionGraphe(void) {
 	{
 		sensMoteur = 1;
 		EtapeActuel = OuvertureTotale;
+		StatutVanne = "Ouverture";
 		bOuvertureTotale = false;
 		Sortie[OuvertureVanne] = 1;
 		
@@ -357,11 +395,32 @@ void EvolutionGraphe(void) {
 	if (Etape[FermetureTotale])
 	{
 		sensMoteur = -1;
+		StatutVanne = "Fermeture";
 		EtapeActuel = FermetureTotale;
 		bFermetureTotale = false;
 		
 		Sortie[FermetureVanne] = 1;
 	}
+	if (Etape[StopMoteurIntensite])
+	{
+		EtapeActuel = StopMoteurIntensite;
+		StatutVanne = "Arret Intensite";
+		Sortie[OuvertureVanne] = 0;
+		Sortie[FermetureVanne] = 0;
+
+
+
+		StaticJsonDocument<96> doc;
+		String json; 
+		doc["Ouverture"] = pPosMoteur();
+		doc["Taqui"] = rpmTurbine;
+		doc["StatutVanne"] = StatutVanne;
+		serializeJson(doc,json);
+		Serial.println(json);
+		sendMessage(MASTER, json);
+
+	}
+	
 
 	
 }
@@ -450,10 +509,11 @@ float mesureTaqui(void){
 			Heltec.display->drawString(100,0,"RPM");
 			
 		#endif
-		#ifdef pinIntensite
-			Heltec.display->drawString(5,15,"Intensite: ");
-			Heltec.display->drawString(60,15,String(currentValue));
-		#endif
+		
+		Heltec.display->drawString(5,15,"Intensite: ");
+		Heltec.display->drawString(60,15,String(currentValue));
+		Heltec.display->drawString(100,15,"mA");
+		
 		break;
 
 	 default:
@@ -534,13 +594,23 @@ void Taqui(void){
 }
 
 void mesureIntensite(void){
-	int adcValue = analogRead(pinIntensite);
+	// int adcValue = analogRead(pinIntensite);
 
-	double  adcVoltage = (adcValue / 1024.0) * 5000;
-	currentValue = ((adcVoltage - 2500) / 66);  //int offsetVoltage = 2500;
+	// double  adcVoltage = (adcValue / 1024.0) * 5000;
+	// currentValue = ((adcVoltage - 2500) / 66);  //int offsetVoltage = 2500;
+	if (millis()> previousMesureIntensite + 200)
+	{
+		previousMesureIntensite = millis();
+		currentValue = ina260.readCurrent();
+		
+	}
+	
+	
 }
 // the setup function runs once when you press reset or power the board
 void setup() {
+
+	Wire1.begin(SDA, SCL); 
 	Heltec.begin(true, true, true, true, BAND);
 	Heltec.display->setLogBuffer(10,30);
 	pinMode(pinFCVanneFermee, INPUT_PULLDOWN );
@@ -549,8 +619,8 @@ void setup() {
 	pinMode(pinFermetureVanne, OUTPUT);
 	pinMode(pinOuvertureVanne, OUTPUT);
 
-	pinMode(pinEncodA, INPUT_PULLUP);
-	attachInterrupt(pinEncodA, EncodA,CHANGE);
+	pinMode(pinEncodA, INPUT);
+	attachInterrupt((pinEncodA), EncodA,RISING);
 #ifdef pinEncodB
 	pinMode(pinEncodB, INPUT);
 	attachInterrupt(pinEncodB, EncodB,CHANGE);
@@ -560,15 +630,22 @@ void setup() {
 	pinMode(pinTaqui, INPUT);
 	attachInterrupt(pinTaqui, Taqui,RISING);
 #endif
-#ifdef pinIntensite
-	pinMode(pinIntensite,INPUT);
-#endif
+
 
 	if (preferences.begin("Turbine",false))
 	{
 		ouvertureMax = preferences.getLong("ouvertureMax",ouvertureMax);
 	}
-	
+	if (!ina260.begin(0x40, &Wire1)) {
+		Heltec.display->drawString(0,12,"Couldn't find INA260 chip");
+		Serial.println("Couldn't find INA260 chip");
+		Heltec.display->display();
+		while (1);
+	}
+	Heltec.display->drawString(0,12,"INA260 ok !");
+	Heltec.display->display();
+	Serial.println("Found INA260 chip");
+
 	 
 
 	delay(1000);

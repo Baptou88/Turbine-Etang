@@ -11,11 +11,18 @@
 #include <TurbineEtangLib.h>
 #include <Preferences.h>
 #include <ArduinoJson.h>
+#include <Adafruit_BMP280.h>
 
 #define PRGButton 0
 
+
+Adafruit_BMP280 bmp; // I2C
+float temp = 0;
+float pressure = 0;
 byte displayMode = 0;
-VL53L1X sensor;
+VL53L1X vl53l1x;
+
+bool previousEtatButton = false;
 
 Message receivedMessage;
 
@@ -27,6 +34,9 @@ byte localAddress = 0x0C;
 byte msgCount = 0;
 int NiveauMax = 0;
 int NiveauMin = 1000;
+
+const int longeurEtang = 12000;
+const int largeurEtang= 6000;
 
 Preferences preferences;
 
@@ -63,17 +73,17 @@ void displayData(void)
 	case 0:
 		Heltec.display->drawString(0, 10, "Niveau: " + String(NiveauEtang));
 		Heltec.display->drawString(0, 22, "Ratio: " + String(PNiveau()*100) + "%");
-		Heltec.display->drawString(0, 40, sensor.rangeStatusToString(sensor.ranging_data.range_status));
+		Heltec.display->drawString(0, 40, vl53l1x.rangeStatusToString(vl53l1x.ranging_data.range_status));
 		AfficherNiveauJauge();
 
 		Heltec.display->drawString(60,2,"Max:" + String(NiveauMax));
 		Heltec.display->drawString(60,52,"Min:" + String(NiveauMin));
 		break;
 	case 1:
-		Heltec.display->drawString(0, 10, "Range   " + String(sensor.ranging_data.range_mm));
-		Heltec.display->drawString(0, 20, "Status  " + String(sensor.rangeStatusToString(sensor.ranging_data.range_status)));
-		Heltec.display->drawString(0, 30, "Ambient " + String(sensor.ranging_data.ambient_count_rate_MCPS));
-		Heltec.display->drawString(0, 40, "Peak    " + String(sensor.ranging_data.peak_signal_count_rate_MCPS));
+		Heltec.display->drawString(0, 10, "Range   " + String(vl53l1x.ranging_data.range_mm));
+		Heltec.display->drawString(0, 20, "Status  " + String(vl53l1x.rangeStatusToString(vl53l1x.ranging_data.range_status)));
+		Heltec.display->drawString(0, 30, "Ambient " + String(vl53l1x.ranging_data.ambient_count_rate_MCPS));
+		Heltec.display->drawString(0, 40, "Peak    " + String(vl53l1x.ranging_data.peak_signal_count_rate_MCPS));
 
 		break;
 	case 2 :
@@ -88,15 +98,6 @@ void displayData(void)
 	Heltec.display->display();
 }
 
-void  sendData(void) {
-	digitalWrite(LED_BUILTIN, HIGH);
-	LoRa.beginPacket();
-	LoRa.print(localAddress);
-	LoRa.print(1);
-	LoRa.print(PNiveau());
-	LoRa.endPacket();
-	digitalWrite(LED_BUILTIN, LOW);
-}
                 
 void mesureSysteme(void)
 {
@@ -104,21 +105,13 @@ void mesureSysteme(void)
 	{
 		
 		previousMesure = millis();
-		sensor.read();
+		vl53l1x.read();
 		
-		NiveauEtang = sensor.ranging_data.range_mm;
+		temp = bmp.readTemperature();
+		pressure = bmp.readPressure();
+		NiveauEtang = vl53l1x.ranging_data.range_mm;
 	}
-	if (digitalRead(PRGButton) == LOW)
-	{
-		if (displayMode < 2)
-		{
-			displayMode++;
-		}
-		else
-		{
-			displayMode = 0;
-		}
-	}
+	
 
 	
 }
@@ -134,13 +127,13 @@ void TraitementCommande(String Commande){
 	if (Commande.startsWith("SMAX"))
 	{
 		//Commande.remove(0,3);
-		NiveauMax = sensor.ranging_data.range_mm;
+		NiveauMax = vl53l1x.ranging_data.range_mm;
 		Heltec.display->println("SET MAX ok !");
 	}
 	if (Commande.startsWith("SMIN"))
 	{
 		//Commande.remove(0,3);
-		NiveauMin = sensor.ranging_data.range_mm;
+		NiveauMin = vl53l1x.ranging_data.range_mm;
 		Heltec.display->println("SET Min ok !");
 	}
 	if (Commande.startsWith("SEEPROM"))
@@ -220,28 +213,39 @@ void setup() {
 	Heltec.begin(true, true, true, true, 868E6);
 	
 	pinMode(LED_BUILTIN, OUTPUT);
+
+	//bmp280
+	if (!bmp.begin(0x76)) {
+		Heltec.display->drawString(0, 12, "Failed init bmp280");
+		Heltec.display->display();
+    
+  	} else {
+		  Heltec.display->drawString(0, 12, "ok init bmp280");
+	}
 	//Vl53L1X
-	sensor.setTimeout(500);
-	Serial.println("Hello World ! ");
-	if (!sensor.init())
+	vl53l1x.setTimeout(500);
+	Heltec.display->drawString(20, 24, "Init vl53l1x");
+	if (!vl53l1x.init())
 	{
-		Heltec.display->drawString(0, 10, "Failed init vl53l1x");
+		Heltec.display->drawString(20, 24, "X");
 		Serial.println("Failed init VL53L1X");
+		Heltec.display->display();
 	}
 	else
 	{
-		Heltec.display->drawString(0, 10, "ok init vl53l1x");
+		Heltec.display->drawString(0, 24, "OK");
 		Serial.println("Ok init VL53L1X");
 	}
-	sensor.setDistanceMode(VL53L1X::Long);
-	sensor.setMeasurementTimingBudget(100000);//50000
+	
+	vl53l1x.setDistanceMode(VL53L1X::Long);
+	vl53l1x.setMeasurementTimingBudget(180000);//50000
 	
 	// Start continuous readings at a rate of one measurement every 50 ms (the
 	// inter-measurement period). This period should be at least as long as the
 	// timing budget.
-	sensor.startContinuous(50);
-	// sensor.setROICenter(64);
-	sensor.setROISize(1,1);
+	vl53l1x.startContinuous(50);
+	// vl53l1x.setROICenter(64);
+	vl53l1x.setROISize(1,1);
 	LoRa.onReceive(onReceive);
 	LoRa.receive();
 
@@ -259,29 +263,49 @@ void setup() {
 		//preferences.putInt("NiveauMax",18);
 		Serial.printf(" prefs : Min: %u Max: %u", NiveauMin , NiveauMax );
 		
-	
+	Heltec.display->display();
+	delay(1000);
+	Heltec.display->clear();
 }
 
 // the loop function runs over and over again until power down or reset
 void loop() {
 	mesureSysteme();
 	displayData();
-	
+	if ((digitalRead(PRGButton) == LOW) && !previousEtatButton)
+	{
+		previousEtatButton = true;
+		if (displayMode < 2)
+		{
+			displayMode++;
+		}
+		else
+		{
+			displayMode = 0;
+		}
+	}
+	if (digitalRead(PRGButton) == HIGH)
+	{
+		previousEtatButton = false;
+	}
 	if (millis() - previousSend > 5000)
 	{
 		previousSend = millis();
 		//sendData();
 		StaticJsonDocument<128> doc;
 		String json; 
-		doc["mesure"] = sensor.ranging_data.range_mm;
+		doc["mesure"] = vl53l1x.ranging_data.range_mm;
 		doc["Niveau"] = PNiveau();
-		doc["RangeStatus"] = VL53L1X::rangeStatusToString( sensor.ranging_data.range_status);
+		doc["RangeStatus"] = VL53L1X::rangeStatusToString( vl53l1x.ranging_data.range_status);
+		doc["temp"] = temp,
+		doc["pressure"] = pressure;
+		
 		serializeJson(doc,json);
 		Serial.println("voila ce que jenvoi: "+ String(json));
 		// sendMessage(0x0A, "Niveau: " + String(PNiveau())+ "," +
-		// 	"RangeStatus :" + VL53L1X::rangeStatusToString( sensor.ranging_data.range_status) + "," +
-		// 	"PeakSignal :" + String(sensor.ranging_data.peak_signal_count_rate_MCPS)+ "," +
-		// 	"AmbientSignal :" + String(sensor.ranging_data.ambient_count_rate_MCPS)+ "," 
+		// 	"RangeStatus :" + VL53L1X::rangeStatusToString( vl53l1x.ranging_data.range_status) + "," +
+		// 	"PeakSignal :" + String(vl53l1x.ranging_data.peak_signal_count_rate_MCPS)+ "," +
+		// 	"AmbientSignal :" + String(vl53l1x.ranging_data.ambient_count_rate_MCPS)+ "," 
 		// );
 		sendMessage(0x0A, json);
 		LoRa.receive();
@@ -300,6 +324,6 @@ void loop() {
 		receivedMessage.Content= "";
 	}
 	
-	delay(500);
+	delay(200);
 }
 

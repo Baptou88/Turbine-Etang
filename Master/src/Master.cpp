@@ -21,6 +21,8 @@
 #include <FS.h>
 #include <ArduinoJson.h>
 #include <time.h>
+#include <Adafruit_NeoPixel.h>
+
 
 
 #define BAND 868E6
@@ -48,6 +50,18 @@ const char* HOSTNAME = "ESP32LoRa";
 byte localAddress = 0x0A;
 long msgCount = 0;
 byte displayMode = 0;
+
+float NiveauEtang = 0.5;
+// Parameter 1 = number of pixels in strip
+// Parameter 2 = Arduino pin number (most are valid)
+// Parameter 3 = pixel type flags, add together as needed:
+//   NEO_KHZ800  800 KHz bitstream (most NeoPixel products w/WS2812 LEDs)
+//   NEO_KHZ400  400 KHz (classic 'v1' (not v2) FLORA pixels, WS2811 drivers)
+//   NEO_GRB     Pixels are wired for GRB bitstream (most NeoPixel products)
+//   NEO_RGB     Pixels are wired for RGB bitstream (v1 FLORA pixels, not v2)
+//   NEO_RGBW    Pixels are wired for RGBW bitstream (NeoPixel RGBW products)
+Adafruit_NeoPixel strip = Adafruit_NeoPixel(8, 32, NEO_GRB + NEO_KHZ800);
+
 
 class Command
 {
@@ -86,6 +100,7 @@ public:
 			"\"lastUpdate\" : " + lastmessage + "" + 
 			"}";
 	};
+	bool newMessage = false;
 	Command Commands[10];
 	void AddCommand(String Name, int id, String Type, String Action) {
 		Commands[id].Action = Action;
@@ -185,7 +200,17 @@ String processor(const String& var) {
 			{
 				if (allBoard[i]->Commands[j].Name != "")
 				{
+					// if (allBoard[i]->Commands[j].Name == "button")
+					// {
+					// 	retour += "<input type=\""+ allBoard[i]->Commands[j].Type + "\" name=\""+ allBoard[i]->Commands[j].Name + "\" value=\"" + allBoard[i]->Commands[j].Name + "\" onclick=\"update(this,"+ "'"+allBoard[i]->Commands[j].Action +"')\">\n";
+
+					// } else if (allBoard[i]->Commands[j].Name == "textbox")
+					// {
+					// 	retour += "<input type=\""+ allBoard[i]->Commands[j].Type + "\" name=\""+ allBoard[i]->Commands[j].Name + "\" value=\"" + allBoard[i]->Commands[j].Name + "\" onclick=\"update(this,"+ "'"+allBoard[i]->Commands[j].Action +"')\">\n";
+					// }
 					retour += "<input type=\""+ allBoard[i]->Commands[j].Type + "\" name=\""+ allBoard[i]->Commands[j].Name + "\" value=\"" + allBoard[i]->Commands[j].Name + "\" onclick=\"update(this,"+ "'"+allBoard[i]->Commands[j].Action +"')\">\n";
+
+					
 				}
 			}
 			retour += "<button type=\"button\" class=\"btn btn-info btn-sm\" data-bs-toggle=\"modal\" data-bs-target=\"#modal"+ allBoard[i]->Name + "\">Open Modal</button>\n";
@@ -245,6 +270,8 @@ void InitBoard(void) {
 	TurbineBoard.AddCommand("FermetureTotale", 1, "button", "FT");
 	TurbineBoard.AddCommand("+1T  Moteur",2,"button","D360");
 	TurbineBoard.AddCommand("-1T  Moteur",3,"button","D-360");
+	TurbineBoard.AddCommand("SetMin",4,"button","SMIN");
+	TurbineBoard.AddCommand("SetMax",5,"button","SMAX");
 
 	localboard.AddCommand("VextOff",0,"button","VEXTOFF");
 	localboard.AddCommand("VextOn",1,"button","VEXTON");
@@ -478,7 +505,58 @@ void displayData(void) {
 
 }
 
+void AffichagePixel(void){
+	static int brightness = 0;
+	static int sensBrigntness = 1;
+	if (brightness >= 255)
+	{
+		sensBrigntness = -1;
+	} 
+	if (brightness <= 0)
+	{
+		sensBrigntness = 1;
+	} 
+	brightness += sensBrigntness;
+	strip.setBrightness(brightness);
+	strip.clear();
+	
+	int nombre = NiveauEtang * strip.numPixels() ;
+	for (size_t i = 0; i < nombre; i++)
+	{
+		strip.setPixelColor(i, strip.Color(0, 0, 127));
+	}
+	strip.show();
+}
+void deserializeResponse(byte board, String Response){
+	
+	StaticJsonDocument<200> doc;
 
+
+
+
+  // Deserialize the JSON document
+  DeserializationError error = deserializeJson(doc, Response);
+
+  // Test if parsing succeeds.
+  if (error) {
+    Serial.print(F("deserializeJson() failed: "));
+    Serial.println(error.f_str());
+    return;
+  }
+  switch (board)
+  {
+  case ETANG:
+	NiveauEtang=doc["Niveau"];
+	break;
+  
+  default:
+	  break;
+  }
+  
+  
+  
+  
+}
 void onReceive(int packetSize)
 {
 	if (packetSize == 0) return;          // if there's no packet, return
@@ -509,6 +587,9 @@ void onReceive(int packetSize)
 		
 		return;                             // skip rest of function
 	}
+	
+
+ 
 	switch (receivedMessage.sender)
 	{
 	case MASTER:
@@ -517,11 +598,14 @@ void onReceive(int packetSize)
 	case ETANG:
 		allBoard[1]->lastmessage = millis();
 		allBoard[1]->LastMessage = receivedMessage;
+		allBoard[1]->newMessage = true;
+
 		
 		break;
 	case TURBINE:
 		allBoard[2]->lastmessage = millis();
 		allBoard[2]->LastMessage = receivedMessage;
+		allBoard[2]->newMessage = true;
 		break;
 	default:
 		
@@ -601,6 +685,7 @@ void InitSD(void) {
 	delay(2000);
 
 }
+
 void printLocalTime()
 {
   struct tm timeinfo;
@@ -643,11 +728,18 @@ void setup() {
 	Heltec.display->flipScreenVertically();
 	Heltec.display->setLogBuffer(5, 100);
 	RouteHttp();
+	strip.begin();
+  	strip.setBrightness(20);
+  	strip.show(); // Initialize all pixels to 'off'
+	strip.setPixelColor(1, strip.Color(127, 0, 0));
+   	strip.show();
+
 }
 
 // the loop function runs over and over again until power down or reset
 void loop() {
    
+   AffichagePixel();
 	if ((digitalRead(PRGButton) == LOW) && !previousEtatbutton)
 	{
 		previousEtatbutton = true;
@@ -665,6 +757,16 @@ void loop() {
 		previousEtatbutton = false;
 	}
 	displayData();
+	for (size_t i = 1; i < 3; i++)
+	{
+		if (allBoard[i]->newMessage)
+		{
+			allBoard[i]->newMessage = false;
+			deserializeResponse(allBoard[i]->localAddress, allBoard[i]->LastMessage.Content);
+		}
+		
+	}
+	
 
 	//printLocalTime();
 	//----------------------------------------Serveur HTTP
@@ -695,5 +797,5 @@ void loop() {
 			client.stop();
 		}
 	}*/
-	delay(200);
+	delay(20);
 }

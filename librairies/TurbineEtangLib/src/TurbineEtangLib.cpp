@@ -10,6 +10,11 @@
 extern int msgCount;
 extern byte localAddress;
 
+// typedef mesg_t{
+// 	byte destination,
+// 	byte sender,
+// 	int msgCount
+// }
 void sendMessage(byte destination, String outgoing)
 {
 	LoRa.beginPacket();                   // start packet
