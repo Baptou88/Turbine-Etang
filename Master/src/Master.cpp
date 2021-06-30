@@ -25,6 +25,7 @@
 
 
 
+
 #define BAND 868E6
 #define PRGButton 0
 
@@ -35,7 +36,26 @@ SPIClass spi1;
 //WiFiServer serverHTTP(80);	//80 est le port standard du protocole HTTP
 AsyncWebServer serverHTTP(80);	//80 est le port standard du protocole HTTP
 
-
+typedef enum {
+	Manuel,
+	Auto
+}EmodeTurbine;
+String EmodeTurbinetoString(size_t m){
+	switch (m)
+	{
+	case Manuel:
+		return "Manuel";
+		break;
+	case Auto:
+		return "Auto";
+		break;
+	default:
+		return "default";
+		break;
+		
+	}
+}
+EmodeTurbine modeTurbine = Manuel;
 const char* ntpServer = "pool.ntp.org";
 
 // Definition de parametre Wifi
@@ -200,15 +220,15 @@ String processor(const String& var) {
 			{
 				if (allBoard[i]->Commands[j].Name != "")
 				{
-					// if (allBoard[i]->Commands[j].Name == "button")
-					// {
-					// 	retour += "<input type=\""+ allBoard[i]->Commands[j].Type + "\" name=\""+ allBoard[i]->Commands[j].Name + "\" value=\"" + allBoard[i]->Commands[j].Name + "\" onclick=\"update(this,"+ "'"+allBoard[i]->Commands[j].Action +"')\">\n";
+					if (allBoard[i]->Commands[j].Type == "button")
+					{
+						retour += "<input type=\""+ allBoard[i]->Commands[j].Type + "\" name=\""+ allBoard[i]->Commands[j].Name + "\" value=\"" + allBoard[i]->Commands[j].Name + "\" onclick=\"update(this,"+ "'"+allBoard[i]->Commands[j].Action +"')\">\n";
 
-					// } else if (allBoard[i]->Commands[j].Name == "textbox")
-					// {
-					// 	retour += "<input type=\""+ allBoard[i]->Commands[j].Type + "\" name=\""+ allBoard[i]->Commands[j].Name + "\" value=\"" + allBoard[i]->Commands[j].Name + "\" onclick=\"update(this,"+ "'"+allBoard[i]->Commands[j].Action +"')\">\n";
-					// }
-					retour += "<input type=\""+ allBoard[i]->Commands[j].Type + "\" name=\""+ allBoard[i]->Commands[j].Name + "\" value=\"" + allBoard[i]->Commands[j].Name + "\" onclick=\"update(this,"+ "'"+allBoard[i]->Commands[j].Action +"')\">\n";
+					} else if (allBoard[i]->Commands[j].Name == "textbox")
+					{
+						retour += "<input type=\""+ allBoard[i]->Commands[j].Type + "\" name=\""+ allBoard[i]->Commands[j].Name + "\" value=\"" + allBoard[i]->Commands[j].Name + "\" onclick=\"update(this,"+ "'"+allBoard[i]->Commands[j].Action +"')\">\n";
+					}
+					//retour += "<input type=\""+ allBoard[i]->Commands[j].Type + "\" name=\""+ allBoard[i]->Commands[j].Name + "\" value=\"" + allBoard[i]->Commands[j].Name + "\" onclick=\"update(this,"+ "'"+allBoard[i]->Commands[j].Action +"')\">\n";
 
 					
 				}
@@ -254,9 +274,21 @@ String processor(const String& var) {
 		}
 		return retour;
 
+	} else if (var == "ModeTurbine")
+	{
+		String retour = "";
+		retour += "<select name=\"text\" onchange=\" updateb('10','ModeTurbine=' + this.value)\">";
+		
+		for (size_t i = Manuel	; i <= Auto; i++)
+		{
+			retour += "<option value=\""+ String(i) + "\">"+ EmodeTurbinetoString(i) + "</option>";
+		}
+		
+		retour += "</select>";
+		return retour;
 	}
 	return String();
-	return String();
+	
 }
 void InitBoard(void) {
 	EtangBoard.AddCommand("SaveEEPROM", 0,"button", "SEEPROM");
@@ -335,7 +367,7 @@ void TraitementCommande(String c){
 		// create an object to add to the array
 		JsonObject objArrayData = data.createNestedObject();
 	
-	objArrayData["ouverture"] = 80;
+		objArrayData["ouverture"] = 80;
 		objArrayData["niveau"] = 50;
 		objArrayData["name"] = "niveau";
 	
@@ -353,6 +385,24 @@ void TraitementCommande(String c){
 		file.close();
 	
 	}
+	if (c.startsWith("ModeTurbine"))
+	{
+		c.remove(0,12);
+		Serial.println("ModeTurbine: " + String(c));
+		
+		switch (c.toInt())
+		{
+		case 0:
+			modeTurbine = Manuel;
+			break;
+		case 1:
+			modeTurbine = Auto;
+			break;
+		default:
+			break;
+		}
+	}
+	
 		
 }
 
@@ -393,6 +443,8 @@ void RouteHttp() {
 	});
 	serverHTTP.on("/maj", HTTP_GET, [](AsyncWebServerRequest* request) {
 		String retour = "{ \"msSystem\" :" + String(millis()) + "," +
+			//"\"modeTurbine\":\"" + String(EmodeTurbinetoString(modeTurbine)) + "\"," + 
+			"\"modeTurbine\": {\"name\":\" " + String(EmodeTurbinetoString(modeTurbine)) + "\", \"id\":"+ modeTurbine + "}," + 
 		"\"boards\" : [" + allBoard[0]->toJson() + "," + allBoard[1]->toJson() + "," + allBoard[2]->toJson() + "]}";
 		//Serial.println("maj" + String(retour));
 		request->send(200, "application/json", retour);
@@ -496,6 +548,9 @@ void displayData(void) {
 		break;
 	case 1:
 		Heltec.display->drawLogBuffer(1, 1);
+		break;
+	case 2:
+		Heltec.display->drawString(0,10,String(EmodeTurbinetoString( modeTurbine)));
 		break;
 	default:
 		break;

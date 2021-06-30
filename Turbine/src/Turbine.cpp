@@ -372,11 +372,13 @@ void EvolutionGraphe(void) {
 	if (Etape[EnvoyerMessage])
 	{
 		EtapeActuel = EnvoyerMessage;
-		StaticJsonDocument<96> doc;
+		StaticJsonDocument<128> doc;
 		String json; 
 		doc["Ouverture"] = pPosMoteur();
 		doc["Taqui"] = rpmTurbine;
 		doc["StatutVanne"] = StatutVanne;
+		doc["OuvCodeur"] = posMoteur;
+		doc["OuvMaxCodeur"] = ouvertureMax;
 		serializeJson(doc,json);
 		Serial.println(json);
 		sendMessage(MASTER, json);
@@ -510,9 +512,12 @@ float mesureTaqui(void){
 			
 		#endif
 		
-		Heltec.display->drawString(5,15,"Intensite: ");
+		Heltec.display->drawString(0,15,"Intensite: ");
 		Heltec.display->drawString(60,15,String(currentValue));
 		Heltec.display->drawString(100,15,"mA");
+		Heltec.display->drawString(0,28,"MaxI: ");
+		Heltec.display->drawString(55,28,String(maxIntensite));
+		Heltec.display->drawString(100,28,"mA");
 		
 		break;
 

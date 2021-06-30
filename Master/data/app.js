@@ -134,22 +134,37 @@ document.addEventListener('DOMContentLoaded', function () {
  });
 
 function update(element, action) {
-    console.log(element)
-    console.log(action)
-    board = element.parentElement.parentElement.id
-    
-    board = board.replace("board-","")
-    var xhr = new XMLHttpRequest();
-    xhr.onreadystatechange = function() {
-        if (this.readyState == 4 && this.status == 200) {
-            console.log(this.responseText)
+  console.log(element)
+  console.log(action)
+  board = element.parentElement.parentElement.id
+  
+  board = board.replace("board-","")
+  var xhr = new XMLHttpRequest();
+  xhr.onreadystatechange = function() {
+      if (this.readyState == 4 && this.status == 200) {
+          console.log(this.responseText)
 
-        } else{
-            //console.log (this.status)
-        }
-    }
-    xhr.open("GET", "/update?b=" + board + "&c="+ action, true);
-    xhr.send();
+      } else{
+          //console.log (this.status)
+      }
+  }
+  xhr.open("GET", "/update?b=" + board + "&c="+ action, true);
+  xhr.send();
+}
+function updateb(board, action) {
+  console.log(board);
+  console.log(action)
+  var xhr = new XMLHttpRequest();
+  xhr.onreadystatechange = function() {
+      if (this.readyState == 4 && this.status == 200) {
+          console.log(this.responseText)
+
+      } else{
+          //console.log (this.status)
+      }
+  }
+  xhr.open("GET", "/update?b=" + board + "&c="+ action, true);
+  xhr.send();
 }
 /**
  * maj
