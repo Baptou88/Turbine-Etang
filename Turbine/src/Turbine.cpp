@@ -15,7 +15,7 @@
 #define BAND 868E6
 #define PRGButton 0
 
-#define TAILLETAB 16
+#define TAILLETAB 24
 
 //entree
 #define FCVanneOuverte 0
@@ -39,7 +39,7 @@ byte msgCount = 0;
 Adafruit_INA260 ina260 = Adafruit_INA260();
 double currentValue = 0;
 unsigned long previousMesureIntensite = 0;
-int maxIntensite = 1600; //mA
+int maxIntensite = 4000; //mA
 
 String StatutVanne = "Arret";
 
@@ -80,6 +80,7 @@ bool previousEtatbutton = false;
 enum Etapes
 {
 	Init,
+	DelaiPOM,
 	AttenteOrdre,
 	TraitementMessage,
 	OuvrirVanne,
@@ -89,12 +90,19 @@ enum Etapes
 	EnvoyerMessage,
 	OuvertureTotale,
 	FermetureTotale,
+	POMO,
+	POMF,
+	STOPPOMF,
+	STOPPOMO,
 };
 String EtapeToString(Etapes E) {
 	switch (E)
 	{
 	case Init:
 		return "Init";
+		break;
+	case DelaiPOM:
+		return "delaipom";
 		break;
 	case AttenteOrdre:
 		return "AttendeOrdre";
@@ -123,12 +131,26 @@ String EtapeToString(Etapes E) {
 	case StopMoteurIntensite:
 		return "StopMoteurIntensite";
 		break;
+	case POMO:
+		return "POMO";
+		break;
+	case POMF:
+		return "POMF";
+		break;
+	case STOPPOMF:
+		return "STOPPOMF";
+		break;
+	case STOPPOMO:
+		return "STOPPOMO";
+		break;
 	default:
 		return "default";
 		break;
 	}
 }
 Etapes EtapeActuel;
+Etapes SousEtapeActuel;
+
 // déclaration des tableaux 
 byte Etape[TAILLETAB];
 int Transition[TAILLETAB];
@@ -210,10 +232,37 @@ bool finTempo(int numTempo) {
 		return(false);
 	}
 }
+float mesureTaqui(void){
+	float rpm = countTaqui * 60000 / float((millis() - previousMillisTaqui));
+	countTaqui = 0;
+	previousMillisTaqui = millis();
+
+	return rpm;
+}
+void mesureIntensite(void){
+	// int adcValue = analogRead(pinIntensite);
+
+	// double  adcVoltage = (adcValue / 1024.0) * 5000;
+	// currentValue = ((adcVoltage - 2500) / 66);  //int offsetVoltage = 2500;
+	if (millis()> previousMesureIntensite + 200)
+	{
+		previousMesureIntensite = millis();
+		currentValue = ina260.readCurrent();
+		
+	}
+	
+	
+}
 void acquisitionEntree(void) {
 	Entree[FCVanneOuverte] = digitalRead(pinFCVanneOuverte) ? true :false ;
 	Entree[FCVanneFerme] = digitalRead(pinFCVanneFermee) ? true : false;
 	Entree[EPRGBUTTON] = digitalRead(PRGButton)? true : false;
+	mesureIntensite();
+	if (millis()> previousCalculTaqui + 2000)
+	{
+		previousCalculTaqui = millis();
+		rpmTurbine = mesureTaqui();
+	}
 }
 void TraitementCommande(String c){
 	if (c.startsWith("M"))
@@ -270,58 +319,76 @@ void EvolutionGraphe(void) {
 
 	// calcul des transitions
 
-	Transition[0] = Etape[Init] /*&& FrontMontant[BP]*/;
-	Transition[1] = Etape[AttenteOrdre] && consigneMoteur < 0;
-	Transition[2] = Etape[AttenteOrdre] && consigneMoteur > 0;
-	Transition[3] = Etape[OuvrirVanne] && (consigneMoteur < 0 || Entree[FCVanneOuverte]);
-	Transition[4] = Etape[FermerVanne] && (consigneMoteur > 0 || Entree[FCVanneFerme]);
-	Transition[5] = Etape[StopMoteur] && finTempo(0);
-	Transition[6] = Etape[AttenteOrdre] && finTempo(1);
-	Transition[7] = Etape[EnvoyerMessage] ;
-	Transition[8] = Etape[AttenteOrdre] && bOuvertureTotale;
-	Transition[9] = Etape[AttenteOrdre] && bFermetureTotale;
-	Transition[10] = Etape[OuvertureTotale] && (Entree[FCVanneOuverte] == true);
-	Transition[11] = Etape[FermetureTotale] && (Entree[FCVanneFerme] == true);
-	Transition[12] = Etape[OuvrirVanne] && currentValue> maxIntensite;
-	Transition[13] = Etape[FermerVanne] && currentValue> maxIntensite;
-	Transition[14] = Etape[OuvertureTotale] && currentValue> maxIntensite;
-	Transition[15] = Etape[FermetureTotale] && currentValue> maxIntensite;
+	Transition[0] = Etape[Init];
+	Transition[1] = Etape[DelaiPOM] && Entree[EPRGBUTTON] == false /*&& FrontMontant[BP]*/;
+	Transition[2] = Etape[DelaiPOM] && (Entree[FCVanneFerme] == true) && finTempo(2);
+	Transition[3] = Etape[DelaiPOM] && (Entree[FCVanneFerme] == false) && finTempo(2);
+	Transition[4] = Etape[POMO] && (Entree[FCVanneFerme] == false);
+	Transition[5] = Etape[POMF] && (Entree[FCVanneFerme] == true);
+	Transition[6] = Etape[STOPPOMF] ;
+	Transition[7] = Etape[AttenteOrdre] && consigneMoteur < 0;
+	Transition[8] = Etape[AttenteOrdre] && consigneMoteur > 0;
+	Transition[9] = Etape[OuvrirVanne] && (consigneMoteur < 0 || Entree[FCVanneOuverte]);
+	Transition[10] = Etape[FermerVanne] && (consigneMoteur > 0 || Entree[FCVanneFerme]);
+	Transition[11] = Etape[StopMoteur] && finTempo(0);
+	Transition[12] = Etape[AttenteOrdre] && finTempo(1);
+	Transition[13] = Etape[EnvoyerMessage] ;
+	Transition[14] = Etape[AttenteOrdre] && bOuvertureTotale;
+	Transition[15] = Etape[AttenteOrdre] && bFermetureTotale;
+	Transition[16] = Etape[OuvertureTotale] && (Entree[FCVanneOuverte] == true);
+	Transition[17] = Etape[FermetureTotale] && (Entree[FCVanneFerme] == true);
+	Transition[18] = Etape[OuvrirVanne] && currentValue> maxIntensite;
+	Transition[19] = Etape[FermerVanne] && currentValue> maxIntensite;
+	Transition[20] = Etape[OuvertureTotale] && currentValue> maxIntensite;
+	Transition[21] = Etape[FermetureTotale] && currentValue> maxIntensite;
 
 	// Desactivation des etapes
 	if (Transition[0]) Etape[Init] = 0;
-	if (Transition[1]) Etape[AttenteOrdre] = 0;
-	if (Transition[2]) Etape[AttenteOrdre] = 0;
-	if (Transition[3]) Etape[OuvrirVanne] = 0;
-	if (Transition[4]) Etape[FermerVanne] = 0;
-	if (Transition[5]) Etape[StopMoteur] = 0;
-	if (Transition[6]) Etape[AttenteOrdre] = 0;
-	if (Transition[7]) Etape[EnvoyerMessage] = 0;
+	if (Transition[1]) Etape[DelaiPOM] = 0;
+	if (Transition[2]) Etape[DelaiPOM] = 0;
+	if (Transition[3]) Etape[DelaiPOM] = 0;
+	if (Transition[4]) Etape[POMO] = 0;
+	if (Transition[5]) Etape[POMF] = 0;
+	if (Transition[6]) Etape[STOPPOMF] = 0;
+	if (Transition[7]) Etape[AttenteOrdre] = 0;
 	if (Transition[8]) Etape[AttenteOrdre] = 0;
-	if (Transition[9]) Etape[AttenteOrdre] = 0;
-	if (Transition[10]) Etape[OuvertureTotale] = 0;
-	if (Transition[11]) Etape[FermetureTotale] = 0;
-	if (Transition[12]) Etape[OuvrirVanne] = 0;
-	if (Transition[13]) Etape[FermerVanne] = 0;
-	if (Transition[14]) Etape[OuvertureTotale] = 0;
-	if (Transition[15]) Etape[FermetureTotale] = 0;
+	if (Transition[9]) Etape[OuvrirVanne] = 0;
+	if (Transition[10]) Etape[FermerVanne] = 0;
+	if (Transition[11]) Etape[StopMoteur] = 0;
+	if (Transition[12]) Etape[AttenteOrdre] = 0;
+	if (Transition[13]) Etape[EnvoyerMessage] = 0;
+	if (Transition[14]) Etape[AttenteOrdre] = 0;
+	if (Transition[15]) Etape[AttenteOrdre] = 0;
+	if (Transition[16]) Etape[OuvertureTotale] = 0;
+	if (Transition[17]) Etape[FermetureTotale] = 0;
+	if (Transition[18]) Etape[OuvrirVanne] = 0;
+	if (Transition[19]) Etape[FermerVanne] = 0;
+	if (Transition[20]) Etape[OuvertureTotale] = 0;
+	if (Transition[21]) Etape[FermetureTotale] = 0;
 
 	// Activation des etapes
-	if (Transition[0]) Etape[AttenteOrdre] = 1;
-	if (Transition[1]) Etape[FermerVanne] = 1;
-	if (Transition[2]) Etape[OuvrirVanne] = 1;
-	if (Transition[3]) Etape[StopMoteur] = 1;
-	if (Transition[4]) Etape[StopMoteur] = 1;
-	if (Transition[5]) Etape[AttenteOrdre] = 1;
-	if (Transition[6]) Etape[EnvoyerMessage] = 1;
-	if (Transition[7]) Etape[AttenteOrdre] = 1;
-	if (Transition[8]) Etape[OuvertureTotale] = 1;
-	if (Transition[9]) Etape[FermetureTotale] = 1;
+	if (Transition[0]) Etape[DelaiPOM] = 1;
+	if (Transition[1]) Etape[AttenteOrdre] = 1;
+	if (Transition[2]) Etape[POMO] = 1;
+	if (Transition[3]) Etape[POMF] = 1;
+	if (Transition[4]) Etape[POMF] = 1;
+	if (Transition[5]) Etape[STOPPOMF] = 1;
+	if (Transition[6]) Etape[AttenteOrdre] = 1;
+	if (Transition[7]) Etape[FermerVanne] = 1;
+	if (Transition[8]) Etape[OuvrirVanne] = 1;
+	if (Transition[9]) Etape[StopMoteur] = 1;
 	if (Transition[10]) Etape[StopMoteur] = 1;
-	if (Transition[11]) Etape[StopMoteur] = 1;
-	if (Transition[12]) Etape[StopMoteurIntensite] =1;
-	if (Transition[13]) Etape[StopMoteurIntensite] =1;
-	if (Transition[14]) Etape[StopMoteurIntensite] =1;
-	if (Transition[15]) Etape[StopMoteurIntensite] =1;
+	if (Transition[11]) Etape[AttenteOrdre] = 1;
+	if (Transition[12]) Etape[EnvoyerMessage] = 1;
+	if (Transition[13]) Etape[AttenteOrdre] = 1;
+	if (Transition[14]) Etape[OuvertureTotale] = 1;
+	if (Transition[15]) Etape[FermetureTotale] = 1;
+	if (Transition[16]) Etape[StopMoteur] = 1;
+	if (Transition[17]) Etape[StopMoteur] = 1;
+	if (Transition[18]) Etape[StopMoteurIntensite] =1;
+	if (Transition[19]) Etape[StopMoteurIntensite] =1;
+	if (Transition[20]) Etape[StopMoteurIntensite] =1;
+	if (Transition[21]) Etape[StopMoteurIntensite] =1;
 
 	// Gestion des actions sur les etapes
 	/*if (Etape[START] == 1) {
@@ -331,7 +398,15 @@ void EvolutionGraphe(void) {
 	if (Etape[Init])
 	{
 		EtapeActuel = Init;
+		startTempo(2,5000);
 	}
+	if (Etape[DelaiPOM])
+	{
+		EtapeActuel = DelaiPOM;
+		startTempo(2,5000);
+	}
+	
+
 	if (Etape[AttenteOrdre] == 1)
 	{
 		startTempo(1,10000);
@@ -422,12 +497,35 @@ void EvolutionGraphe(void) {
 		sendMessage(MASTER, json);
 
 	}
-	
+	if (Etape[POMO])
+	{
+		EtapeActuel = POMO;
+		Sortie[OuvertureVanne] = 1;
+		
+	}
+	if (Etape[POMF])
+	{
+		EtapeActuel = POMF;
+		Sortie[OuvertureVanne] = 0;
+		Sortie[FermetureVanne] = 1;
+	}
+	if (Etape[STOPPOMF])
+	{
+		EtapeActuel = STOPPOMF;
+		Sortie[OuvertureVanne] = 0;
+		Sortie[FermetureVanne] = 0;
+		posMoteur = 0;
+	}
+	if (Etape[STOPPOMO])
+	{
+		EtapeActuel = STOPPOMO;
+		Sortie[OuvertureVanne] = 0;
+		Sortie[FermetureVanne] = 0;
+		ouvertureMax = posMoteur;
+	}
 
 	
 }
-
-
 
 void miseAjourSortie(void) {
 	digitalWrite(pinOuvertureVanne, Sortie[OuvertureVanne]);
@@ -462,70 +560,74 @@ void stopTempo(int numTempo) {
 void EncodB() {
 	 countEncodB += 1;
 }
-float mesureTaqui(void){
-	float rpm = countTaqui * 60000 / float((millis() - previousMillisTaqui));
-	countTaqui = 0;
-	previousMillisTaqui = millis();
 
-	return rpm;
-}
  void displayData() {
-	 Heltec.display->clear();
-	 switch (displayMode)
-	 {
-	 case 0:
-		 Heltec.display->drawString(0, 0, "EA: " + String(countEncodA));
+	Heltec.display->clear();
+	if (EtapeActuel == DelaiPOM)
+	{
+		
+		Heltec.display->drawString(0,30,"Prise Origine");
+		Heltec.display->drawString(0,20,"debut "+ String(Tempo[2] - millis()));
+		
+	} else {
+		switch (displayMode)
+		{
+		case 0:
+			Heltec.display->drawString(0, 0, "EA: " + String(countEncodA));
 #ifdef pinEncodB
-		Heltec.display->drawString(64, 0, "EB: " + String(countEncodB));
+			Heltec.display->drawString(64, 0, "EB: " + String(countEncodB));
 #endif // pinEncodB
-		Heltec.display->drawString(0, 20, "posMoteur: " + String(posMoteur));
-		Heltec.display->drawString(40, 32, "consigne: " + String(consigneMoteur));
-		if (sensMoteur>0)
-		{
-			Heltec.display->drawString(15, 50, "->");
-		}
-		else if(sensMoteur < 0)
-		{
-			Heltec.display->drawString(15, 50, "<-");
-		}
-		Heltec.display->drawString(25, 50, "Etape: " + String(EtapeToString( EtapeActuel)));
-	
-	 	Heltec.display->drawString(5, 55, Entree[FCVanneFerme]? "*" : "");
-	 	Heltec.display->drawString(110, 55, Entree[FCVanneOuverte] ? "*" : "");
-		 break;
-	 case 1:
-		Heltec.display->drawString(60,0,String(posMoteur));
-		Heltec.display->drawString(100,0,String(ouvertureMax));
+			Heltec.display->drawString(0, 20, "posMoteur: " + String(posMoteur));
+			Heltec.display->drawString(40, 32, "consigne: " + String(consigneMoteur));
+			if (sensMoteur>0)
+			{
+				Heltec.display->drawString(15, 50, "->");
+			}
+			else if(sensMoteur < 0)
+			{
+				Heltec.display->drawString(15, 50, "<-");
+			}
+			Heltec.display->drawString(25, 50, "Etape: " + String(EtapeToString( EtapeActuel)));
 		
-		Heltec.display->drawString(60,50,String(pPosMoteur()));
-		Heltec.display->drawProgressBar(5,30,100,10,pPosMoteur()*100);
-	 	break;
-	case 2:
-		Heltec.display->drawLogBuffer(0,0);
-		break;
-
-	case 3:
-		#ifdef pinTaqui
-			Heltec.display->drawString(0,0,"Taqui");
-			Heltec.display->drawString(40,0,String(rpmTurbine));
-			Heltec.display->drawString(100,0,"RPM");
+			Heltec.display->drawString(5, 55, Entree[FCVanneFerme]? "*" : "");
+			Heltec.display->drawString(110, 55, Entree[FCVanneOuverte] ? "*" : "");
+			break;
+		case 1:
+			Heltec.display->drawString(60,0,String(posMoteur));
+			Heltec.display->drawString(100,0,String(ouvertureMax));
 			
-		#endif
-		
-		Heltec.display->drawString(0,15,"Intensite: ");
-		Heltec.display->drawString(60,15,String(currentValue));
-		Heltec.display->drawString(100,15,"mA");
-		Heltec.display->drawString(0,28,"MaxI: ");
-		Heltec.display->drawString(55,28,String(maxIntensite));
-		Heltec.display->drawString(100,28,"mA");
-		
-		break;
+			Heltec.display->drawString(60,50,String(pPosMoteur()));
+			Heltec.display->drawProgressBar(5,30,100,10,pPosMoteur()*100);
+			break;
+		case 2:
+			Heltec.display->drawLogBuffer(0,0);
+			break;
 
-	 default:
-		break;
-	 }
+		case 3:
+			#ifdef pinTaqui
+				Heltec.display->drawString(0,0,"Taqui");
+				Heltec.display->drawString(40,0,String(rpmTurbine));
+				Heltec.display->drawString(100,0,"RPM");
+				
+			#endif
+			
+			Heltec.display->drawString(0,15,"Intensite: ");
+			Heltec.display->drawString(60,15,String(currentValue));
+			Heltec.display->drawString(100,15,"mA");
+			Heltec.display->drawString(0,28,"MaxI: ");
+			Heltec.display->drawString(55,28,String(maxIntensite));
+			Heltec.display->drawString(100,28,"mA");
+			
+			break;
+
+		default:
+			break;
+		}
+		
 	 
-	 Heltec.display->display();
+ 	}
+	 
+	Heltec.display->display();
  }
  void debugGrafcet(void) {
 	 Serial.print("Etape : ");
@@ -598,20 +700,7 @@ void Taqui(void){
  countTaqui++;
 }
 
-void mesureIntensite(void){
-	// int adcValue = analogRead(pinIntensite);
 
-	// double  adcVoltage = (adcValue / 1024.0) * 5000;
-	// currentValue = ((adcVoltage - 2500) / 66);  //int offsetVoltage = 2500;
-	if (millis()> previousMesureIntensite + 200)
-	{
-		previousMesureIntensite = millis();
-		currentValue = ina260.readCurrent();
-		
-	}
-	
-	
-}
 // the setup function runs once when you press reset or power the board
 void setup() {
 
@@ -667,22 +756,31 @@ void setup() {
 
 // the loop function runs over and over again until power down or reset
 void loop() {
-	if ((digitalRead(PRGButton) == LOW) && !previousEtatbutton )
+	if (Etape[DelaiPOM] == true)
 	{
-		previousEtatbutton = true;
-		if (displayMode < 3 )
-		{
-			displayMode++;
-		}
-		else
-		{
-			displayMode = 0;
-		}
-	} 
-	if (digitalRead(PRGButton) == HIGH)
+		
+	} else
 	{
-		previousEtatbutton = false;
+		if ((digitalRead(PRGButton) == LOW) && !previousEtatbutton )
+		{
+			previousEtatbutton = true;
+			if (displayMode < 3 )
+			{
+				displayMode++;
+			}
+			else
+			{
+				displayMode = 0;
+			}
+		} 
+		if (digitalRead(PRGButton) == HIGH)
+		{
+			previousEtatbutton = false;
+		}	
 	}
+	
+	
+	
 	
 	// acquisition des entrées et stockage dans variables internes
 	acquisitionEntree();
@@ -695,13 +793,7 @@ void loop() {
 	// evolution du grafcet
 	EvolutionGraphe();
 
-	//todo changer de place
-	mesureIntensite();
-	if (millis()> previousCalculTaqui + 2000)
-	{
-		previousCalculTaqui = millis();
-		rpmTurbine = mesureTaqui();
-	}
+	
 	
 	// mise à jour des sorties
 	miseAjourSortie();

@@ -22,6 +22,7 @@
 #include <ArduinoJson.h>
 #include <time.h>
 #include <Adafruit_NeoPixel.h>
+#include <AutoPID.h>
 
 
 
@@ -40,6 +41,7 @@ typedef enum {
 	Manuel,
 	Auto
 }EmodeTurbine;
+
 String EmodeTurbinetoString(size_t m){
 	switch (m)
 	{
@@ -71,7 +73,17 @@ byte localAddress = 0x0A;
 long msgCount = 0;
 byte displayMode = 0;
 
-float NiveauEtang = 0.5;
+double NiveauEtang = 0.5;
+double correctionVanne =0;
+double setpoint = -.8;
+double pidNiveauEtang = -1 * NiveauEtang;
+
+
+double OuvertureVanne = 0;
+double OuvertureMaxVanne = 1800; 
+double pidOuvertureVanne = 0;
+double pidOuvertureMaxVanne = -1800; 
+
 // Parameter 1 = number of pixels in strip
 // Parameter 2 = Arduino pin number (most are valid)
 // Parameter 3 = pixel type flags, add together as needed:
@@ -82,6 +94,10 @@ float NiveauEtang = 0.5;
 //   NEO_RGBW    Pixels are wired for RGBW bitstream (NeoPixel RGBW products)
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(8, 32, NEO_GRB + NEO_KHZ800);
 
+
+//pid vanne
+AutoPID myPID(&pidNiveauEtang, &setpoint, &correctionVanne, pidOuvertureMaxVanne, pidOuvertureVanne, 1, .5, 0.5);
+unsigned long lastCorrectionVanne = 0;
 
 class Command
 {
@@ -600,12 +616,32 @@ void deserializeResponse(byte board, String Response){
   }
   switch (board)
   {
-  case ETANG:
-	NiveauEtang=doc["Niveau"];
-	break;
-  
-  default:
-	  break;
+	case ETANG:
+		NiveauEtang=doc["Niveau"];
+		pidNiveauEtang = -1 * NiveauEtang;
+		break;
+	case TURBINE:
+		if (doc.containsKey("Ouverture") && doc.containsKey("OuvMaxCodeur"))
+		{
+			Serial.println("J'ai bien les key du json de turbine");
+			OuvertureVanne = doc["Ouverture"];
+			OuvertureMaxVanne = doc["OuvMaxCodeur"];
+			pidOuvertureMaxVanne = -1*OuvertureMaxVanne;
+			pidOuvertureVanne = -1*OuvertureVanne;
+			myPID.setOutputRange(  (-1)* (OuvertureMaxVanne - OuvertureVanne), (-1 * OuvertureVanne) );
+			//Serial.println("le nouveau min: " + String(myPID.getOutputMin()));
+			//Serial.println("le nouveau max: " + String(myPID.getOutputMax()));
+			
+		} else
+		{
+			Serial.println("Je n'ai pas les key du json de turbine");
+		}
+		
+		
+		
+		break;
+	default:
+		break;
   }
   
   
@@ -661,6 +697,7 @@ void onReceive(int packetSize)
 		allBoard[2]->lastmessage = millis();
 		allBoard[2]->LastMessage = receivedMessage;
 		allBoard[2]->newMessage = true;
+
 		break;
 	default:
 		
@@ -789,12 +826,33 @@ void setup() {
 	strip.setPixelColor(1, strip.Color(127, 0, 0));
    	strip.show();
 
+	myPID.setTimeStep(5000);
+
 }
 
 // the loop function runs over and over again until power down or reset
 void loop() {
    
    AffichagePixel();
+//    if (EtangBoard.lastmessage != 0)
+//    {
+	   
+	   
+	   
+//    } else
+//    {
+// 	   myPID.stop();
+//    }
+   myPID.run();
+   
+   
+   if (millis()> lastCorrectionVanne + 5000)
+   {
+	    Serial.println("mesure: "+ String(NiveauEtang ) );
+	    lastCorrectionVanne = millis();
+		Serial.println("Correction Vanne: "+ String(correctionVanne) );
+   }
+   
 	if ((digitalRead(PRGButton) == LOW) && !previousEtatbutton)
 	{
 		previousEtatbutton = true;
@@ -812,6 +870,7 @@ void loop() {
 		previousEtatbutton = false;
 	}
 	displayData();
+
 	for (size_t i = 1; i < 3; i++)
 	{
 		if (allBoard[i]->newMessage)
