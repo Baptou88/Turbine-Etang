@@ -20,7 +20,10 @@
         "files.associations": {
             "random": "cpp",
             "xutility": "cpp",
-            "functional": "cpp"
+            "functional": "cpp",
+            "fstream": "cpp",
+            "xlocmes": "cpp",
+            "*.tcc": "cpp"
         }
     }
 }

@@ -21,6 +21,7 @@ float temp = 0;
 float pressure = 0;
 byte displayMode = 0;
 VL53L1X vl53l1x;
+long timingBudget = 180000;
 
 bool previousEtatButton = false;
 
@@ -75,16 +76,17 @@ void displayData(void)
 		Heltec.display->drawString(0, 22, "Ratio: " + String(PNiveau()*100) + "%");
 		Heltec.display->drawString(0, 40, vl53l1x.rangeStatusToString(vl53l1x.ranging_data.range_status));
 		AfficherNiveauJauge();
-
+		
 		Heltec.display->drawString(60,2,"Max:" + String(NiveauMax));
 		Heltec.display->drawString(60,52,"Min:" + String(NiveauMin));
 		break;
 	case 1:
-		Heltec.display->drawString(0, 10, "Range   " + String(vl53l1x.ranging_data.range_mm));
-		Heltec.display->drawString(0, 20, "Status  " + String(vl53l1x.rangeStatusToString(vl53l1x.ranging_data.range_status)));
-		Heltec.display->drawString(0, 30, "Ambient " + String(vl53l1x.ranging_data.ambient_count_rate_MCPS));
-		Heltec.display->drawString(0, 40, "Peak    " + String(vl53l1x.ranging_data.peak_signal_count_rate_MCPS));
-
+		Heltec.display->drawString(0, 05, "Range   " + String(vl53l1x.ranging_data.range_mm));
+		Heltec.display->drawString(0, 15, "Status  " + String(vl53l1x.rangeStatusToString(vl53l1x.ranging_data.range_status)));
+		Heltec.display->drawString(0, 25, "Ambient " + String(vl53l1x.ranging_data.ambient_count_rate_MCPS));
+		Heltec.display->drawString(0, 35, "Peak    " + String(vl53l1x.ranging_data.peak_signal_count_rate_MCPS));
+		Heltec.display->drawString(0,45,"TimingBudget: " + String(vl53l1x.getMeasurementTimingBudget()));
+		Heltec.display->drawString(0,55,"TimingBudget: " + String(vl53l1x.getROICenter() ));
 		break;
 	case 2 :
 		Heltec.display->drawLogBuffer(0,0);
@@ -164,6 +166,13 @@ void TraitementCommande(String Commande){
 		esp_sleep_enable_touchpad_wakeup();
 		esp_deep_sleep_start();
 	}
+	if (Commande.startsWith("TB"))
+	{
+		Commande.remove(0,1);
+		timingBudget = Commande.toInt();
+		vl53l1x.setMeasurementTimingBudget(timingBudget);
+	}
+	
 }
 void onReceive(int packetSize)
 {
@@ -238,18 +247,19 @@ void setup() {
 	}
 	
 	vl53l1x.setDistanceMode(VL53L1X::Long);
-	vl53l1x.setMeasurementTimingBudget(180000);//50000
+	vl53l1x.setMeasurementTimingBudget(15000);//50000
 	
 	// Start continuous readings at a rate of one measurement every 50 ms (the
 	// inter-measurement period). This period should be at least as long as the
 	// timing budget.
 	vl53l1x.startContinuous(50);
 	// vl53l1x.setROICenter(64);
-	vl53l1x.setROISize(1,1);
+	vl53l1x.setROISize(5,5);
+	
 	LoRa.onReceive(onReceive);
 	LoRa.receive();
 
-
+	
 
 	Heltec.display->setLogBuffer(10,30);
 	//initEEPROM();

@@ -313,6 +313,21 @@ void TraitementCommande(String c){
 	{
 		ouvertureMax = posMoteur;
 	}
+	if (c == "SetMaxI")
+	{
+		c.remove(0,6);
+		maxIntensite = c.toInt();
+		preferences.putInt("maxIntensite",maxIntensite);
+		
+	}
+	if (c == "ouvertureMax")
+	{
+		c.remove(0,12);
+		ouvertureMax = c.toInt();
+		preferences.putInt("ouvertureMax",ouvertureMax);
+		
+	}
+	
 	
 }
 void EvolutionGraphe(void) {
@@ -729,6 +744,7 @@ void setup() {
 	if (preferences.begin("Turbine",false))
 	{
 		ouvertureMax = preferences.getLong("ouvertureMax",ouvertureMax);
+		maxIntensite = preferences.getLong("maxIntensite", maxIntensite);
 	}
 	if (!ina260.begin(0x40, &Wire1)) {
 		Heltec.display->drawString(0,12,"Couldn't find INA260 chip");

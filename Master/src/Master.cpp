@@ -20,7 +20,8 @@
 #include "TurbineEtangLib.h"
 #include <FS.h>
 #include <ArduinoJson.h>
-#include <time.h>
+#include <NTPClient.h>
+#include <WiFiUdp.h>
 #include <Adafruit_NeoPixel.h>
 #include <AutoPID.h>
 
@@ -36,6 +37,9 @@ SPIClass spi1;
 // Set web server port number to 80
 //WiFiServer serverHTTP(80);	//80 est le port standard du protocole HTTP
 AsyncWebServer serverHTTP(80);	//80 est le port standard du protocole HTTP
+
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP);
 
 typedef enum {
 	Manuel,
@@ -306,6 +310,35 @@ String processor(const String& var) {
 	return String();
 	
 }
+JsonObject getJsonFromFile(DynamicJsonDocument *doc, String filename){
+	File myFile = SPIFFS.open(filename);
+	if (myFile)
+	{
+		DeserializationError error = deserializeJson(*doc,myFile);
+		if (error)
+		{
+			return doc->to<JsonObject>();
+		}
+		return doc->as<JsonObject>();
+		
+	}else
+	{
+		return doc->to<JsonObject>();
+	}
+	
+}
+bool saveJsonToFile(DynamicJsonDocument *doc, String filename){
+	File myFile = SPIFFS.open(filename, FILE_WRITE);
+	if (myFile)
+	{
+		serializeJson(*doc, myFile);
+		myFile.close();
+		return true;
+
+	} else {
+		return false;
+	}
+}
 void InitBoard(void) {
 	EtangBoard.AddCommand("SaveEEPROM", 0,"button", "SEEPROM");
 	EtangBoard.AddCommand("ClearEEPROM", 1, "button", "ClearEEPROM");
@@ -321,21 +354,41 @@ void InitBoard(void) {
 	TurbineBoard.AddCommand("SetMin",4,"button","SMIN");
 	TurbineBoard.AddCommand("SetMax",5,"button","SMAX");
 
-	localboard.AddCommand("VextOff",0,"button","VEXTOFF");
-	localboard.AddCommand("VextOn",1,"button","VEXTON");
-	localboard.AddCommand("Save data", 2,"button","SDATA");
+	
+	localboard.AddCommand("Save data", 0,"button","SDATA");
+	localboard.AddCommand("ClearData", 1 , "button", "CDATA");
+	localboard.AddCommand("Save data", 2,"button","SDATA2");
+}
+bool saveData(void){
+	DynamicJsonDocument doc(1024);
+	JsonObject obj;
+	obj = getJsonFromFile(&doc,"/data.json");
+	serializeJson(obj,Serial);
+	//JsonArray data;
+	JsonObject objArrayData  =  obj["data"].createNestedObject();
+
+
+ 
+	objArrayData["niveauEtang"] = NiveauEtang;
+	objArrayData["ouverture"] = OuvertureVanne;
+	objArrayData["time"] = timeClient.getEpochTime();
+
+	saveJsonToFile(&doc,"/data.json");
+	return true;
 }
 void TraitementCommande(String c){
-	if (c == "VEXTON")
-	{	
-		Serial.println("VEXTON");
-		Heltec.VextON();
-	}
-	if (c == "VEXTOFF")
+
+	if ( c == "CDATA")
 	{
-		Serial.println("VEXTOFF");
-		Heltec.VextOFF();
+		SPIFFS.remove("/data.json");
+		File file = SPIFFS.open("/data.json", FILE_WRITE);
+		file.close();
 	}
+	if (c == "SDATA2")
+	{
+		saveData();
+	}
+	
 	if (c == "SDATA")
 	{
 		DynamicJsonDocument doc(1024);
@@ -780,12 +833,7 @@ void InitSD(void) {
 
 void printLocalTime()
 {
-  struct tm timeinfo;
-  if(!getLocalTime(&timeinfo)){
-    Serial.println("Failed to obtain time");
-    return;
-  }
-  Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
+  Serial.println(timeClient.getFormattedTime());
 }
 
 void setup() {
@@ -827,7 +875,10 @@ void setup() {
    	strip.show();
 
 	myPID.setTimeStep(5000);
-
+	timeClient.begin();
+	while(!timeClient.update()) {
+    	timeClient.forceUpdate();
+  }
 }
 
 // the loop function runs over and over again until power down or reset
@@ -845,7 +896,7 @@ void loop() {
 //    }
    myPID.run();
    
-   
+   //printLocalTime();
    if (millis()> lastCorrectionVanne + 5000)
    {
 	    Serial.println("mesure: "+ String(NiveauEtang ) );
