@@ -565,6 +565,13 @@ void RouteHttp() {
 	serverHTTP.on("/data.json", HTTP_GET, [](AsyncWebServerRequest* request) {
 		request->send(SPIFFS, "/data.json", "application/json");
 		});
+	serverHTTP.on("/secret.html",HTTP_GET,[](AsyncWebServerRequest* request){
+		if(!request->authenticate("admin", "admin")){
+			return request->requestAuthentication();
+		}
+    		
+  		request->send(SPIFFS , "/secret.html" ,"text/plain");
+	});
 	Serial.println("Configuration Route ok");
 	delay(1000);
 	
