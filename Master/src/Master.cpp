@@ -16,7 +16,6 @@
 #include <SD.h>
 #include <WiFi.h>
 #include <heltec.h>
-//#include "HttpServer.h"
 #include "TurbineEtangLib.h"
 #include <FS.h>
 #include <ArduinoJson.h>
@@ -24,6 +23,8 @@
 #include <WiFiUdp.h>
 #include <Adafruit_NeoPixel.h>
 #include <AutoPID.h>
+
+#include "websocket.h"
 
 
 
@@ -37,6 +38,7 @@ SPIClass spi1;
 // Set web server port number to 80
 //WiFiServer serverHTTP(80);	//80 est le port standard du protocole HTTP
 AsyncWebServer serverHTTP(80);	//80 est le port standard du protocole HTTP
+AsyncWebSocket ws("/ws");
 
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP);
@@ -297,7 +299,7 @@ String processor(const String& var) {
 	} else if (var == "ModeTurbine")
 	{
 		String retour = "";
-		retour += "<select name=\"text\" onchange=\" updateb('10','ModeTurbine=' + this.value)\">";
+		retour += "<select name=\"text\" onchange=\" updateb('10','ModeTurbine=' + this.value); websocket.send('modeturbine=auto');\">";
 		
 		for (size_t i = Manuel	; i <= Auto; i++)
 		{
@@ -571,6 +573,9 @@ void RouteHttp() {
 		}
     		
   		request->send(SPIFFS , "/secret.html" ,"text/plain");
+	});
+	serverHTTP.on("/websocket.js", HTTP_GET, [](AsyncWebServerRequest* request){
+		request->send(SPIFFS, "/websocket.js", "application/javascript");
 	});
 	Serial.println("Configuration Route ok");
 	delay(1000);
@@ -874,7 +879,11 @@ void setup() {
 	Heltec.display->clear();
 	Heltec.display->flipScreenVertically();
 	Heltec.display->setLogBuffer(5, 100);
+
+	initWebSocket();
 	RouteHttp();
+
+
 	strip.begin();
   	strip.setBrightness(20);
   	strip.show(); // Initialize all pixels to 'off'
@@ -882,10 +891,13 @@ void setup() {
    	strip.show();
 
 	myPID.setTimeStep(5000);
+
 	timeClient.begin();
 	while(!timeClient.update()) {
     	timeClient.forceUpdate();
-  }
+  	}
+	
+	
 }
 
 // the loop function runs over and over again until power down or reset
@@ -906,9 +918,11 @@ void loop() {
    //printLocalTime();
    if (millis()> lastCorrectionVanne + 5000)
    {
-	    Serial.println("mesure: "+ String(NiveauEtang ) );
+	    //Serial.println("mesure: "+ String(NiveauEtang ) );
 	    lastCorrectionVanne = millis();
-		Serial.println("Correction Vanne: "+ String(correctionVanne) );
+		//Serial.println("Correction Vanne: "+ String(correctionVanne) );
+
+		notifyClients();
    }
    
 	if ((digitalRead(PRGButton) == LOW) && !previousEtatbutton)
@@ -969,5 +983,7 @@ void loop() {
 			client.stop();
 		}
 	}*/
+	ws.cleanupClients();
 	delay(20);
+	
 }
