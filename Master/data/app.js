@@ -118,8 +118,8 @@ document.addEventListener('DOMContentLoaded', function () {
       data.data.forEach(element => {
         //console.log(element)
         //console.log([i,element.niveau])
-        options.series[0].data.push([(new Date()).getTime(),element.niveau])
-        options.series[1].data.push([(new Date()).getTime(),element.ouverture])
+        options.series[0].data.push([(new Date(element.time * 1000)).getTime(), element.niveauEtang* 100 ])
+        options.series[1].data.push([(new Date(element.time * 1000)).getTime(),element.ouverture*100])
       });
         // options.series[0].data = data;
         chartniveautests = Highcharts.chart('chart-niveautests', options );

@@ -1,17 +1,30 @@
 #include "TurbineEtangLib.h"
 #include "Heltec.h"
 #include <ESPAsyncWebServer.h>
+#include "MasterLib.h"
+
 
 extern AsyncWebSocket ws;
 extern AsyncWebServer serverHTTP;
+//extern board allBoard[];
 
-
-extern enum EmodeTurbine modeTurbine;
-
+// typedef enum {
+// 	Manuel,
+// 	Auto
+// }EmodeTurbine;
+extern EmodeTurbine modeTurbine;
+extern board *allBoard[3];
+extern double OuvertureVanne;
 
 void notifyClients() {
-  ws.textAll(String("ledstate"));
-  
+  //ws.textAll(String("ModeTurbine") + String(modeTurbine));
+  String retour = "{ \"msSystem\" :" + String(millis()) + "," +
+			//"\"modeTurbine\":\"" + String(EmodeTurbinetoString(modeTurbine)) + "\"," + 
+			"\"modeTurbine\": {\"name\":\" " + String(EmodeTurbinetoString(modeTurbine)) + "\", \"id\":"+ modeTurbine + "}," + 
+      "\"OuvertureVanne\": " + String(OuvertureVanne) + "," + 
+		"\"boards\" : [" + allBoard[0]->toJson() + "," + allBoard[1]->toJson() + "," + allBoard[2]->toJson() + "]}";
+
+  ws.textAll(retour);
 }
 
 void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
@@ -26,13 +39,15 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
     }
     if (msg.startsWith("ModeTurbine"))
     {
-      
+      msg.remove(0,12);
+      Serial.println(msg);
       switch (msg.toInt())
       {
       case 0:
-        // modeTurbine =  EmodeTurbine::Manuel;
+        modeTurbine =  EmodeTurbine::Manuel;
         break;
-      
+      case 1:
+        modeTurbine = EmodeTurbine::Auto;
       default:
         break;
       }

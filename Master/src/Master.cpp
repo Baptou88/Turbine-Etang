@@ -24,6 +24,7 @@
 #include <Adafruit_NeoPixel.h>
 #include <AutoPID.h>
 
+#include "MasterLib.h"
 #include "websocket.h"
 
 
@@ -43,26 +44,14 @@ AsyncWebSocket ws("/ws");
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP);
 
-typedef enum {
-	Manuel,
-	Auto
-}EmodeTurbine;
 
-String EmodeTurbinetoString(size_t m){
-	switch (m)
-	{
-	case Manuel:
-		return "Manuel";
-		break;
-	case Auto:
-		return "Auto";
-		break;
-	default:
-		return "default";
-		break;
-		
-	}
-}
+board localboard("Master", MASTER);
+board EtangBoard("Etang", ETANG);
+
+board TurbineBoard("Turbine", TURBINE);
+
+board *allBoard[3] = {  &localboard, &EtangBoard , &TurbineBoard};
+
 EmodeTurbine modeTurbine = Manuel;
 const char* ntpServer = "pool.ntp.org";
 
@@ -105,63 +94,14 @@ Adafruit_NeoPixel strip = Adafruit_NeoPixel(8, 32, NEO_GRB + NEO_KHZ800);
 AutoPID myPID(&pidNiveauEtang, &setpoint, &correctionVanne, pidOuvertureMaxVanne, pidOuvertureVanne, 1, .5, 0.5);
 unsigned long lastCorrectionVanne = 0;
 
-class Command
-{
-public:
-	String Name;
-	String Type;
-	String Action;
 
-private:
+//sauvegarde des données
+unsigned long lastSaveData = 0;
 
-};
-
-
-class board
-{
-public:
-	board(String N, byte Address) {
-		Name = N;
-		localAddress = Address;
-		
-	}
-	String Name;
-	byte localAddress;
-	bool connected = false;
-	unsigned long lastmessage = 0;
-	Message LastMessage;
-	String toJson() {
-		if (this->localAddress == MASTER)
-		{
-			this->lastmessage = millis();
-		}
-		
-		return "{ \"Name\" : \"" + Name + "\"," +
-			"\"localAddress\" : " + localAddress + "," +
-			"\"lastMessage\" : " + this->LastMessage.toJson() + "," +
-			"\"lastUpdate\" : " + lastmessage + "" + 
-			"}";
-	};
-	bool newMessage = false;
-	Command Commands[10];
-	void AddCommand(String Name, int id, String Type, String Action) {
-		Commands[id].Action = Action;
-		Commands[id].Name = Name;
-		Commands[id].Type = Type;
-	}
-
-private:
-	
-};
 
 Message receivedMessage;
 
-board localboard("Master", MASTER);
-board EtangBoard("Etang", ETANG);
 
-board TurbineBoard("Turbine", TURBINE);
-
-board *allBoard[3] = {  &localboard, &EtangBoard , &TurbineBoard};
 
 
 const char index_html[] PROGMEM = R"rawliteral(
@@ -300,7 +240,7 @@ String processor(const String& var) {
 	} else if (var == "ModeTurbine")
 	{
 		
-		retour += "<select name=\"text\" onchange=\"websocket.send('modeturbine=' + this.value);\">";
+		retour += "<select class=\"selectModeTurbine\" name=\"text\" onchange=\"sendws('ModeTurbine=' + this.value);\">";
 		
 		for (size_t i = Manuel	; i <= Auto; i++)
 		{
@@ -314,7 +254,7 @@ String processor(const String& var) {
 		retour += "<div class='container'>";
 		retour += "<h2>Statut Systeme:</h2>";
 		retour += "Mode Turbine: <div class='ModeTurbine'>" + String(EmodeTurbinetoString(modeTurbine)) + "</div>" ;
-		retour += "Ouverture Vanne: " + String(OuvertureVanne);
+		retour += "Ouverture Vanne: <div class='OuvertureVanne'>" + String(OuvertureVanne) + "</div>";
 
 		retour += "</div>";
 
@@ -374,7 +314,7 @@ void InitBoard(void) {
 	localboard.AddCommand("Save data", 2,"button","SDATA2");
 }
 bool saveData(void){
-	DynamicJsonDocument doc(1024);
+	DynamicJsonDocument doc(100000);
 	JsonObject obj;
 	obj = getJsonFromFile(&doc,"/data.json");
 	serializeJson(obj,Serial);
@@ -419,7 +359,7 @@ void TraitementCommande(String c){
 			DeserializationError error = deserializeJson(doc, file);
 			if (error) {
 				// if the file didn't open, print an error:
-				Serial.println(F("Error parsing JSON "));
+				Serial.print(F("Error parsing JSON: "));
 				Serial.println(error.c_str());
 	
 				// create an empty JSON object
@@ -668,10 +608,20 @@ void AffichagePixel(void){
 	strip.setBrightness(brightness);
 	strip.clear();
 	
-	int nombre = NiveauEtang * strip.numPixels() ;
-	for (size_t i = 0; i < nombre; i++)
+	int nombre = (NiveauEtang * strip.numPixels()) + 1 ;
+	//Serial.println("nombre led : " + String(nombre) + " max: " + String(strip.numPixels()));
+	for (int i = 0; i < nombre; i++)
 	{
-		strip.setPixelColor(i, strip.Color(0, 0, 127));
+		
+		if (i < strip.numPixels())
+		{
+			strip.setPixelColor(i, strip.Color(0, 0, 127));
+		} else
+		{
+			strip.setPixelColor(i-1, strip.Color(48, 0, 127));
+		}
+		
+		
 	}
 	strip.show();
 }
@@ -748,7 +698,7 @@ void onReceive(int packetSize)
 		Serial.println("error: message length does not match length");
 		return;                             // skip rest of function
 	}
-	Serial.println(receivedMessage.Content);
+	Serial.println("msg recu: " + String(receivedMessage.Content));
 	// if the recipient isn't this device or broadcast,
 	if (receivedMessage.recipient != localAddress && receivedMessage.recipient != 0xFF)
 	{
@@ -963,6 +913,13 @@ void loop() {
 			deserializeResponse(allBoard[i]->localAddress, allBoard[i]->LastMessage.Content);
 		}
 		
+	}
+	
+
+	if (millis()> lastSaveData + 30000)
+	{
+		lastSaveData = millis();
+		saveData();
 	}
 	
 

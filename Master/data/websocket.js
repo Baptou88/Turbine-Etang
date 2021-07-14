@@ -20,7 +20,20 @@ function onClose(event) {
 
 function onMessage(event) {
     console.log('ws message:');
-    console.log(event);
+    
+    var data = JSON.parse(event.data)
+    console.log(data);
+    //document.getElementById("ModeTurbine").innerHTML = data.modeTurbine.name
+    Array.from(document.getElementsByClassName("ModeTurbine")).forEach(element => {
+        element.innerHTML = data.modeTurbine.name
+    });
+    Array.from(document.getElementsByClassName("selectModeTurbine")).forEach(element => {
+        element.value = data.modeTurbine.id
+    })
+    Array.from(document.getElementsByClassName("OuvertureVanne")).forEach(element => {
+        element.innerHTML = data.OuvertureVanne
+    });
+    
 }
 
 window.addEventListener('load', onLoad);
@@ -30,6 +43,7 @@ window.addEventListener('load', onLoad);
     
 }
 
-function sendws(){
-    websocket.send("");
+function sendws(outgoing){
+    console.log("outgoing: " + outgoing);
+    websocket.send(outgoing);
 }
