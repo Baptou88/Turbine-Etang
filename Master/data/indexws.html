@@ -50,11 +50,16 @@
     <div class="container">
         <h1>ESP32LoRa<span class="badge bg-info text-dark">New</span></h1>
     </div>
-    <div class="container">%ModeTurbine%</div>
+    <div class="container" id="info">
+        <select name="modeTurbine" onchange="websocket.send('modeTurbine=' + this.value) ">
+            <option value=1>Auto</option>
+            <option value=2>Manuel</option>
+        </select>
+        <p>Actif: </p>
+    </div>
     <div class="container">
         <div class="row">
             <div class="col">
-                %StatutSysteme%
                 %ListeLoRa%
             </div>
             <div class="col col-lg-8">

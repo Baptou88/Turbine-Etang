@@ -28,4 +28,8 @@ window.addEventListener('load', onLoad);
   function onLoad(event) {
     initWebSocket();
     
-  }
+}
+
+function sendws(){
+    websocket.send("");
+}

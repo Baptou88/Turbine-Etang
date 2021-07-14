@@ -6,8 +6,12 @@ extern AsyncWebSocket ws;
 extern AsyncWebServer serverHTTP;
 
 
+extern enum EmodeTurbine modeTurbine;
+
+
 void notifyClients() {
   ws.textAll(String("ledstate"));
+  
 }
 
 void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
@@ -15,10 +19,25 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
   if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT) {
     data[len] = 0;
     Serial.println("ws message: " + String((char*)data));
+    String msg = (char*)data;
     if (strcmp((char*)data, "toggle") == 0) {
       Serial.println("toggle");
       notifyClients();
     }
+    if (msg.startsWith("ModeTurbine"))
+    {
+      
+      switch (msg.toInt())
+      {
+      case 0:
+        // modeTurbine =  EmodeTurbine::Manuel;
+        break;
+      
+      default:
+        break;
+      }
+    }
+    
   }
 }
 

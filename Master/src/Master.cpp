@@ -221,6 +221,7 @@ maj();
 )rawliteral";
 String processor(const String& var) {
 	//Serial.println(var);
+	String retour = String();
 	if (var == "BUTTONPLACEHOLDER") {
 		String buttons = "";
 		buttons += "<h4>Output - LED</h4><label class=\"switch\"><input type=\"checkbox\" onchange=\"toggleCheckbox(this)\" id=\"0\" " + String(localAddress) + "><span class=\"slider\"></span></label>\n";
@@ -230,7 +231,7 @@ String processor(const String& var) {
 	}
 	else if (var == "ListeLoRa")
 	{
-		String retour = "";
+		
 		
 		for (byte i = 0; i < 3; i = i + 1) {
 			retour += "<div class=\"card mb-2\" id=\"board-"+ String(allBoard[i]->localAddress) + "\">\n";
@@ -265,7 +266,7 @@ String processor(const String& var) {
 	}
 	else if (var == "ListeLoRaModal")
 	{
-		String retour = "";
+		
 
 		for (byte i = 0; i < 3; i = i + 1) {
 			
@@ -298,8 +299,8 @@ String processor(const String& var) {
 
 	} else if (var == "ModeTurbine")
 	{
-		String retour = "";
-		retour += "<select name=\"text\" onchange=\" updateb('10','ModeTurbine=' + this.value); websocket.send('modeturbine=auto');\">";
+		
+		retour += "<select name=\"text\" onchange=\"websocket.send('modeturbine=' + this.value);\">";
 		
 		for (size_t i = Manuel	; i <= Auto; i++)
 		{
@@ -308,7 +309,18 @@ String processor(const String& var) {
 		
 		retour += "</select>";
 		return retour;
+	} else if (var == "StatutSysteme")
+	{
+		retour += "<div class='container'>";
+		retour += "<h2>Statut Systeme:</h2>";
+		retour += "Mode Turbine: <div class='ModeTurbine'>" + String(EmodeTurbinetoString(modeTurbine)) + "</div>" ;
+		retour += "Ouverture Vanne: " + String(OuvertureVanne);
+
+		retour += "</div>";
+
+		return retour;
 	}
+	
 	return String();
 	
 }
@@ -456,23 +468,23 @@ void TraitementCommande(String c){
 		file.close();
 	
 	}
-	if (c.startsWith("ModeTurbine"))
-	{
-		c.remove(0,12);
-		Serial.println("ModeTurbine: " + String(c));
+	// if (c.startsWith("ModeTurbine"))
+	// {
+	// 	c.remove(0,12);
+	// 	Serial.println("ModeTurbine: " + String(c));
 		
-		switch (c.toInt())
-		{
-		case 0:
-			modeTurbine = Manuel;
-			break;
-		case 1:
-			modeTurbine = Auto;
-			break;
-		default:
-			break;
-		}
-	}
+	// 	switch (c.toInt())
+	// 	{
+	// 	case 0:
+	// 		modeTurbine = Manuel;
+	// 		break;
+	// 	case 1:
+	// 		modeTurbine = Auto;
+	// 		break;
+	// 	default:
+	// 		break;
+	// 	}
+	// }
 	
 		
 }
