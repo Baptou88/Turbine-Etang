@@ -530,6 +530,7 @@ void EvolutionGraphe(void) {
 		Sortie[OuvertureVanne] = 0;
 		Sortie[FermetureVanne] = 0;
 		posMoteur = 0;
+		countEncodA = 0;
 	}
 	if (Etape[STOPPOMO])
 	{
@@ -729,7 +730,7 @@ void setup() {
 	pinMode(pinOuvertureVanne, OUTPUT);
 
 	pinMode(pinEncodA, INPUT);
-	attachInterrupt((pinEncodA), EncodA,RISING);
+	attachInterrupt(pinEncodA, EncodA,RISING);
 #ifdef pinEncodB
 	pinMode(pinEncodB, INPUT);
 	attachInterrupt(pinEncodB, EncodB,CHANGE);

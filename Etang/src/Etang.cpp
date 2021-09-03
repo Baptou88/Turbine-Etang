@@ -12,11 +12,36 @@
 #include <Preferences.h>
 #include <ArduinoJson.h>
 #include <Adafruit_BMP280.h>
+#include <Adafruit_INA219.h>
+#include <esp_adc_cal.h>
+#include <driver/adc.h>
 
 #define PRGButton 0
+#define TAILLETAB 16
+
+
+#define EPRGBUTTON 0
 
 
 Adafruit_BMP280 bmp; // I2C
+
+Adafruit_INA219 ina;
+
+// battery reader
+esp_adc_cal_characteristics_t *adc_chars;
+uint16_t voltage;
+#define DEFAULT_VREF            1100    // Default VREF use if no e-fuse calibration
+#define VBATT_SAMPLE            500     // Battery sample rate in ms
+#define VBATT_SMOOTH            50      // Number of averages in sample
+#define ADC_READ_STABILIZE      5       // in ms (delay from GPIO control and ADC connections times)
+#define VBATT_GPIO              21      // Heltec GPIO to toggle VBatt read connection ... WARNING!!! This also connects VEXT to VCC=3.3v so be careful what is on header.  Also, take care NOT to have ADC read connection in OPEN DRAIN when GPIO goes HIGH
+#define HELTEC_V2_1             1       // Set this to switch between GPIO13(V2.0) and GPIO37(V2.1) for VBatt ADC.
+#define VOLTAGE_DIVIDER         3.20    // Lora has 220k/100k voltage divider so need to reverse that reduction via (220k+100k)/100k on vbat GPIO37 or ADC1_1 (early revs were GPIO13 or ADC2_4 but do NOT use with WiFi.begin())
+#define MAXBATT                 4200    // The default Lipo is 4200mv when the battery is fully charged.
+#define LIGHT_SLEEP_VOLTAGE     3400  //3750    // Point where start light sleep
+#define MINBATT                 3300  //3200  // The default Lipo is 3200mv when the battery is empty...this WILL be low on the 3.3v rail specs!!!
+
+
 float temp = 0;
 float pressure = 0;
 byte displayMode = 0;
@@ -39,8 +64,109 @@ int NiveauMin = 1000;
 const int longeurEtang = 12000;
 const int largeurEtang= 6000;
 
-Preferences preferences;
+// déclaration des tableaux 
+byte Etape[TAILLETAB];
+int Transition[TAILLETAB];
+int Entree[TAILLETAB];
+int Entree_1[TAILLETAB];
+int FrontMontant[TAILLETAB];
+int Sortie[TAILLETAB];
+unsigned long Tempo[TAILLETAB];
 
+Preferences preferences;
+enum Etapes
+{
+	Init,
+	Start,
+	EcranOn,
+	MiseEnVeille,
+	Sleep,
+	Reveil,
+	EcranSuivant,
+	
+
+};
+void InitTableau(void) {
+	int I;
+	for (I = 0; I < TAILLETAB ; I++) {
+		Etape[I] = 0;
+		Transition[I] = 0;
+		Entree[I] = 0;
+		Entree_1[I] = 0;
+		FrontMontant[I] = 0;
+		Sortie[I] = 0;
+		Tempo[I] = 0;
+	}
+}
+void gestionFrontMontant(void) {
+	int I;
+	for (I = 0;I < TAILLETAB;I++) {
+		FrontMontant[I] = 0;
+		if (Entree[I] > Entree_1[I])FrontMontant[I] = 1;
+		Entree_1[I] = Entree[I];
+	}
+}
+void startTempo(int NumTempo, int Duree) {
+	if (Tempo[NumTempo] == 0 ) { // on test si la tempo n'est pas déjà lancé
+		Tempo[NumTempo] = millis() + Duree;  // on stok dans la tempo la valeur que devrat contenir millis() à la fin de la tempo
+	}
+}
+void gestionTempo(void) {
+	int I;
+	for (I = 0;I < TAILLETAB;I++) {
+		if (Tempo[I] != 0) {
+			if (Tempo[I] < millis()) Tempo[I] = 0;   // si millis() et supérieur à la valeur memorisé dans la tempo la tempo est terminé 
+													 // donc on la force à 0
+		}
+	}
+}
+bool finTempo(int numTempo) {
+	if (Tempo[numTempo] == 0) {
+		return(true);
+	}
+	else {
+		return(false);
+	}
+}
+void acquisitionEntree(void) {
+	Entree[EPRGBUTTON] = digitalRead(PRGButton)? false : true;
+	
+}
+void miseAjourSortie(void) {
+	
+}
+
+// fonction d'arrêt d'une tempo
+void stopTempo(int numTempo) {
+	Tempo[numTempo] = 0;
+}
+void debugGrafcet(void) {
+	 Serial.print("Etape : ");
+	 for (byte i = 0; i < TAILLETAB; i++)
+	 {
+		 Serial.print(Etape[i]);
+	 }
+	 Serial.println("-");
+	 Serial.print("Entree: ");
+	 for (byte i = 0; i < TAILLETAB; i++)
+	 {
+		 Serial.print(Entree[i]);
+	 }
+	 Serial.println("-");
+
+	 Serial.print("FM    : ");
+	 for (byte i = 0; i < TAILLETAB; i++)
+	 {
+		 Serial.print(FrontMontant[i]);
+	 }
+	 Serial.println("-");
+	 Serial.print("Sortie: ");
+	 for (byte i = 0; i < TAILLETAB; i++)
+	 {
+		 Serial.print(Sortie[i]);
+	 }
+	 Serial.println("-");
+ }
 float PNiveau(void)
 {
 	//-----------------------------------------------capteur-------------
@@ -65,10 +191,46 @@ void AfficherNiveauJauge(void)
 }
 
 
+void drawBattery(uint16_t voltage, bool sleep) {
+  	Heltec.display->setColor(BLACK);
+	Heltec.display->fillRect(99,0,29,24);
+
+	Heltec.display->setColor(WHITE);
+	Heltec.display->drawRect(104,0,12,6);
+	Heltec.display->fillRect(116,2,1,2);
+
+	uint16_t v = voltage;
+	if (v < MINBATT) {v = MINBATT;}
+	if (v > MAXBATT) {v = MAXBATT;}
+	double pct = map(v,MINBATT,MAXBATT,0,100);
+	uint8_t bars = round(pct / 10.0);
+	Heltec.display->fillRect(105,1,bars,4);
+	Heltec.display->setFont(ArialMT_Plain_10);
+	Heltec.display->setTextAlignment(TEXT_ALIGN_RIGHT);
+	// Draw small "z" when using sleep
+	if (sleep > 0) {
+		Heltec.display->drawHorizontalLine(121,0,4);
+		Heltec.display->drawHorizontalLine(121,5,4);
+		Heltec.display->setPixel(124,1);
+		Heltec.display->setPixel(123,2);
+		Heltec.display->setPixel(122,3);
+		Heltec.display->setPixel(121,4);
+	}
+	Heltec.display->drawString(127,5,String((int)round(pct))+"%");
+	Heltec.display->drawString(127,14,String(round(voltage/10.0)/100.0)+"V");
+	#if defined(__DEBUG) && __DEBUG > 0
+	static uint8_t c = 0;
+	if ((c++ % 10) == 0) {
+		c = 1;
+		Serial.printf("VBAT: %dmV [%4.1f%%] %d bars\n", voltage, pct, bars);
+	}
+	#endif
+	Heltec.display->setTextAlignment(TEXT_ALIGN_LEFT);
+}
 
 void displayData(void)
 {
-	Heltec.display->clear();
+	
 	switch (displayMode)
 	{
 	case 0:
@@ -92,15 +254,122 @@ void displayData(void)
 		Heltec.display->drawLogBuffer(0,0);
 		break;
 	
+	case 3:
+		drawBattery(voltage, voltage < LIGHT_SLEEP_VOLTAGE);
+		break;
 	default:
 		Heltec.display->drawString(0, 10, "erreur indice affichage" );
 		break;
 	}
 	
-	Heltec.display->display();
+	
 }
 
-                
+void EvolutionGraphe(void) {
+
+	// calcul des transitions
+
+	Transition[0] = Etape[Init];
+	Transition[1] = Etape[Start];
+	Transition[2] = Etape[EcranOn] && FrontMontant[EPRGBUTTON];
+	Transition[3] = Etape[EcranSuivant];
+	Transition[4] = Etape[EcranOn] && finTempo(0);
+	Transition[5] = Etape[Etapes::Sleep] && FrontMontant[EPRGBUTTON];
+	Transition[6] = Etape[Etapes::Reveil];
+	Transition[7] = Etape[MiseEnVeille] && finTempo(1);
+
+	// Desactivation des etapes
+	if (Transition[0]) Etape[Init] = 0;
+	if (Transition[1]) Etape[Start] = 0;
+	if (Transition[2]) Etape[EcranOn] = 0;
+	if (Transition[3]) Etape[EcranSuivant] = 0;
+	if (Transition[4]) Etape[EcranOn] = 0;
+	if (Transition[5]) Etape[Sleep] = 0;
+	if (Transition[6]) Etape[Reveil] = 0;
+	if (Transition[7]) Etape[MiseEnVeille] = 0;
+
+	// Activation des etapes
+	if (Transition[0]) Etape[Start] = 1;
+	if (Transition[1]) Etape[EcranOn] = 1;
+	if (Transition[2]) Etape[EcranSuivant] = 1;
+	if (Transition[3]) Etape[EcranOn] = 1;
+	if (Transition[4]) Etape[Etapes::MiseEnVeille] = 1;
+	if (Transition[5]) Etape[Etapes::Reveil] = 1;
+	if (Transition[6]) Etape[Etapes::EcranOn] = 1;
+	if (Transition[7]) Etape[Sleep] = 1;
+
+	// Gestion des actions sur les etapes
+	
+	if (Etape[Init])
+	{
+		//Serial.println("Etape Init");
+	}
+	
+	if (Etape[Start])
+	{
+		//Serial.println("Etape Start");
+		startTempo(0,30000);
+	}
+	
+	if (Etape[EcranOn])
+	{
+		//Serial.println("Etape Ecran On");
+		Heltec.display->clear();
+		displayData();
+		Heltec.display->display();
+	}
+	if (Etape[EcranSuivant])
+	{
+		//Serial.println("Etape Ecran Suivant");
+		if (displayMode> 3)
+		{
+			displayMode =0;
+		} else
+		{
+			displayMode++;
+		}
+		
+		
+		
+		Tempo[0] = millis() + 30000;
+	}
+	if (Etape[MiseEnVeille])
+	{
+		startTempo(1,5000);
+		Heltec.display->clear();
+		displayData();
+		
+		Heltec.display->setColor(BLACK);
+		
+		Heltec.display->fillRect(5,30,114,34);		
+		
+		Heltec.display->setColor(WHITE);
+		Heltec.display->drawRect(4,29,115,35);	
+		Heltec.display->drawString(20,40,"Mise en Veille");
+		
+		Heltec.display->display();
+
+	}
+	
+	if (Etape[Sleep])
+	{
+		//Serial.println("Mise en Veille");
+		Heltec.display->displayOff();
+		Heltec.display->clear();
+		
+	}
+	if (Etape[Reveil])
+	{
+		//Serial.println("Reveil");
+		Heltec.display->displayOn();
+		Heltec.display->clear();
+		Heltec.display->drawString(0,0,"Ecran On");
+		startTempo(0,30000);
+	}
+	
+}
+
+
 void mesureSysteme(void)
 {
 	if (millis() - previousMesure > 500)
@@ -121,8 +390,15 @@ void mesureSysteme(void)
 
 void initPrefs(void){
 
+	preferences.begin("etang", false );
 	
-	
+	//preferences.putInt("NiveauMax",16);
+	//preferences.putInt("NiveauMin",16);
+	NiveauMin = preferences.getInt("NiveauMin",0);
+	NiveauMax = preferences.getInt("NiveauMax",0);
+	//preferences.putInt("NiveauMax",18);
+	Serial.printf("prefs : Min: %u Max: %u", NiveauMin , NiveauMax );
+	Serial.println("");
 }
 
 void TraitementCommande(String Commande){
@@ -218,10 +494,112 @@ void onReceive(int packetSize)
 	//TraitementCommande(receivedMessage.Content);
 }
 
+// Poll the proper ADC for VBatt on Heltec Lora 32 with GPIO21 toggled
+uint16_t ReadVBatt() {
+	uint16_t reading = 666;
+
+	digitalWrite(VBATT_GPIO, LOW);              // ESP32 Lora v2.1 reads on GPIO37 when GPIO21 is low
+	delay(ADC_READ_STABILIZE);                  // let GPIO stabilize
+	#if (defined(HELTEC_V2_1))
+	pinMode(ADC1_CHANNEL_1, OPEN_DRAIN);        // ADC GPIO37
+	reading = adc1_get_raw(ADC1_CHANNEL_1);
+	pinMode(ADC1_CHANNEL_1, INPUT);             // Disconnect ADC before GPIO goes back high so we protect ADC from direct connect to VBATT (i.e. no divider)
+	#else
+	pinMode(ADC2_CHANNEL_4, OPEN_DRAIN);        // ADC GPIO13
+	adc2_get_raw(ADC2_CHANNEL_4,ADC_WIDTH_BIT_12,&reading);
+	pinMode(ADC2_CHANNEL_4, INPUT);             // Disconnect ADC before GPIO goes back high so we protect ADC from direct connect to VBATT (i.e. no divider
+	#endif
+
+	uint16_t voltage = esp_adc_cal_raw_to_voltage(reading, adc_chars);  
+	voltage*=VOLTAGE_DIVIDER;
+
+	return voltage;
+}
+
+
+uint16_t SampleBattery() {
+	static uint8_t i = 0;
+	static uint16_t samp[VBATT_SMOOTH];
+	static int32_t t = 0;
+	static bool f = true;
+	if(f){ for(uint8_t c=0;c<VBATT_SMOOTH;c++){ samp[c]=0; } f=false; }   // Initialize the sample array first time
+	t -= samp[i];   // doing a rolling recording, so remove the old rolled around value out of total and get ready to put new one in.
+	if (t<0) {t = 0;}
+
+	// ADC read
+	uint16_t voltage = ReadVBatt();
+
+	samp[i]=voltage;
+	#if defined(__DEBUG) && __DEBUG > 0
+	Serial.printf("ADC Raw Reading[%d]: %d", i, voltage);
+	#endif
+	t += samp[i];
+
+	if(++i >= VBATT_SMOOTH) {i=0;}
+	uint16_t s = round(((float)t / (float)VBATT_SMOOTH));
+	#if defined(__DEBUG) && __DEBUG > 0
+	Serial.printf("   Smoothed of %d/%d = %d\n",t,VBATT_SMOOTH,s); 
+	#endif
+
+	return s;
+}
+
+void InitBatteryReader(){
+	 // Characterize ADC at particular atten
+  #if (defined(HELTEC_V2_1))
+  adc_chars = (esp_adc_cal_characteristics_t*)calloc(1, sizeof(esp_adc_cal_characteristics_t));
+  esp_adc_cal_value_t val_type = esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_6, ADC_WIDTH_BIT_12, DEFAULT_VREF, adc_chars);
+  adc1_config_width(ADC_WIDTH_BIT_12);
+  adc1_config_channel_atten(ADC1_CHANNEL_1,ADC_ATTEN_DB_6);
+  #else
+  // Use this for older V2.0 with VBatt reading wired to GPIO13
+  adc_chars = (esp_adc_cal_characteristics_t*)calloc(1, sizeof(esp_adc_cal_characteristics_t));
+  esp_adc_cal_value_t val_type = esp_adc_cal_characterize(ADC_UNIT_2, ADC_ATTEN_DB_6, ADC_WIDTH_BIT_12, DEFAULT_VREF, adc_chars);
+  adc2_config_channel_atten(ADC2_CHANNEL_4,ADC_ATTEN_DB_6);
+  #endif
+
+#if defined(__DEBUG) && __DEBUG > 0
+  Serial.printf("ADC Calibration: ");
+  if (val_type == ESP_ADC_CAL_VAL_EFUSE_VREF) {
+      Serial.printf("eFuse Vref\n");
+  } else if (val_type == ESP_ADC_CAL_VAL_EFUSE_TP) {
+      Serial.printf("Two Point\n");
+  } else {
+      Serial.printf("Default[%dmV]\n",DEFAULT_VREF);
+  }
+ #else
+  if (val_type);    // Suppress warning
+ #endif
+
+
+
+  //#if defined(__DEBUG) && __DEBUG >= 1
+  Serial.printf("ADC Calibration: ");
+  if (val_type == ESP_ADC_CAL_VAL_EFUSE_VREF) {
+      Serial.printf("eFuse Vref\n");
+  } else if (val_type == ESP_ADC_CAL_VAL_EFUSE_TP) {
+      Serial.printf("Two Point\n");
+  } else {
+      Serial.printf("Default[%dmV]\n",DEFAULT_VREF);
+  }
+  //#else
+  if (val_type);    // Suppress warning
+  //#endif
+
+  // Prime the Sample register
+  for (uint8_t i = 0;i < VBATT_SMOOTH;i++) {
+    SampleBattery();
+  }
+
+  pinMode(VBATT_GPIO,OUTPUT);
+  digitalWrite(VBATT_GPIO, LOW);              // ESP32 Lora v2.1 reads on GPIO37 when GPIO21 is low
+  delay(ADC_READ_STABILIZE);                  // let GPIO stabilize
+}
 void setup() {
 	Heltec.begin(true, true, true, true, 868E6);
 	
 	pinMode(LED_BUILTIN, OUTPUT);
+	pinMode(PRGButton, INPUT);
 
 	//bmp280
 	if (!bmp.begin(0x76)) {
@@ -236,16 +614,43 @@ void setup() {
 	Heltec.display->drawString(20, 24, "Init vl53l1x");
 	if (!vl53l1x.init())
 	{
-		Heltec.display->drawString(20, 24, "X");
+		Heltec.display->drawString(0, 24, "X");
 		Serial.println("Failed init VL53L1X");
 		Heltec.display->display();
+		while (true)
+		{
+			delay(10);
+		}
+		
 	}
 	else
 	{
 		Heltec.display->drawString(0, 24, "OK");
 		Serial.println("Ok init VL53L1X");
 	}
+
+
+	// //ina219
+	// Heltec.display->drawString(20, 36, "Init ina219");
+	// if (!ina.begin())
+	// {
+	// 	Heltec.display->drawString(0, 36, "X");
+	// 	Serial.println("Failed init INA219");
+	// 	Heltec.display->display();
+	// 	while (true)
+	// 	{
+	// 		delay(10);
+	// 	}
+		
+	// }
+	// else
+	// {
+	// 	Heltec.display->drawString(0, 36, "OK");
+	// 	Serial.println("Ok init INA219");
+	// }
 	
+	InitBatteryReader();
+
 	vl53l1x.setDistanceMode(VL53L1X::Long);
 	vl53l1x.setMeasurementTimingBudget(15000);//50000
 	
@@ -264,16 +669,13 @@ void setup() {
 	Heltec.display->setLogBuffer(10,30);
 	//initEEPROM();
 	initPrefs();
-	preferences.begin("etang", false );
 	
-		//preferences.putInt("NiveauMax",16);
-		//preferences.putInt("NiveauMin",16);
-		NiveauMin = preferences.getInt("NiveauMin",0);
-		NiveauMax = preferences.getInt("NiveauMax",0);
-		//preferences.putInt("NiveauMax",18);
-		Serial.printf(" prefs : Min: %u Max: %u", NiveauMin , NiveauMax );
 		
 	Heltec.display->display();
+
+	// forçage de l'étape initiale
+	Etape[Init] = 1;
+
 	delay(1000);
 	Heltec.display->clear();
 }
@@ -281,23 +683,12 @@ void setup() {
 // the loop function runs over and over again until power down or reset
 void loop() {
 	mesureSysteme();
-	displayData();
-	if ((digitalRead(PRGButton) == LOW) && !previousEtatButton)
-	{
-		previousEtatButton = true;
-		if (displayMode < 2)
-		{
-			displayMode++;
-		}
-		else
-		{
-			displayMode = 0;
-		}
-	}
-	if (digitalRead(PRGButton) == HIGH)
-	{
-		previousEtatButton = false;
-	}
+	//displayData();
+	
+
+
+	voltage = SampleBattery();
+
 	if (millis() - previousSend > 5000)
 	{
 		previousSend = millis();
@@ -311,7 +702,7 @@ void loop() {
 		doc["pressure"] = pressure;
 		
 		serializeJson(doc,json);
-		Serial.println("voila ce que jenvoi: "+ String(json));
+		//Serial.println("voila ce que jenvoi: "+ String(json));
 		// sendMessage(0x0A, "Niveau: " + String(PNiveau())+ "," +
 		// 	"RangeStatus :" + VL53L1X::rangeStatusToString( vl53l1x.ranging_data.range_status) + "," +
 		// 	"PeakSignal :" + String(vl53l1x.ranging_data.peak_signal_count_rate_MCPS)+ "," +
@@ -334,6 +725,25 @@ void loop() {
 		receivedMessage.Content= "";
 	}
 	
-	delay(200);
+
+	// acquisition des entrées et stockage dans variables internes
+	acquisitionEntree();
+
+	// detecttion des fronts monatnts
+	gestionFrontMontant();
+	// gestion des tempos
+	gestionTempo();
+
+	// evolution du grafcet
+	EvolutionGraphe();
+
+	
+	
+	// mise à jour des sorties
+	miseAjourSortie();
+	
+	
+	//debugGrafcet();
+	delay(20);
 }
 

@@ -64,6 +64,16 @@ const char* PASSWORD = "20AAF66FCE1928F64292F3E28E";
 //const char* PASSWORD = "97540708";
 const char* HOSTNAME = "ESP32LoRa";
 
+//battery voltage
+uint16_t battery_voltage = 0;
+float XS = 0.0028;//0.00225;      //The returned reading is multiplied by this XS to get the battery voltage.
+uint16_t MUL = 1000;
+uint16_t MMUL = 100;
+unsigned long lastBatterycheck = 0;
+unsigned long lastBatteryVoltage = 0;
+uint16_t FBattery = 3700;
+
+
 byte localAddress = 0x0A;
 long msgCount = 0;
 byte displayMode = 0;
@@ -585,6 +595,22 @@ void displayData(void) {
 	case 2:
 		Heltec.display->drawString(0,10,String(EmodeTurbinetoString( modeTurbine)));
 		break;
+	case 3:
+	
+		Heltec.display->drawString(0, 0, "Remaining battery still has:");
+   		Heltec.display->drawString(0, 10, "VBAT:");
+		Heltec.display->drawString(35, 10, (String)battery_voltage);
+		Heltec.display->drawString(60, 10, "(mV)");
+		if (lastBatteryVoltage < battery_voltage)
+		{
+			Heltec.display->drawString(60, 20, "^");
+		} else
+		{
+			Heltec.display->drawString(60, 20, "v");
+		}
+		
+		
+		break;
 	default:
 		break;
 	}
@@ -810,6 +836,15 @@ void printLocalTime()
   Serial.println(timeClient.getFormattedTime());
 }
 
+void gestionPower(void){
+	if (millis()- lastBatterycheck >=  + 15000)
+   {
+	   lastBatterycheck = millis();
+	   lastBatteryVoltage = battery_voltage;
+	   battery_voltage = analogRead(37)*XS*MUL; //37
+   }
+   Heltec.VextON();
+}
 void setup() {
 	Heltec.begin(true, true, true, true, BAND);
 	//InitSD();
@@ -858,6 +893,12 @@ void setup() {
 	while(!timeClient.update()) {
     	timeClient.forceUpdate();
   	}
+
+	//battery power
+	
+	
+	adcAttachPin(13);
+	analogSetClockDiv(255); // 1338mS
 	
 	
 }
@@ -866,16 +907,20 @@ void setup() {
 void loop() {
    
    AffichagePixel();
-//    if (EtangBoard.lastmessage != 0)
-//    {
-	   
-	   
-	   
-//    } else
-//    {
-// 	   myPID.stop();
-//    }
+	//    if (EtangBoard.lastmessage != 0)
+	//    {
+		
+		
+		
+	//    } else
+	//    {
+	// 	   myPID.stop();
+	//    }
    myPID.run();
+
+   
+   
+   gestionPower();
    
    //printLocalTime();
    if (millis()> lastCorrectionVanne + 5000)
@@ -890,7 +935,7 @@ void loop() {
 	if ((digitalRead(PRGButton) == LOW) && !previousEtatbutton)
 	{
 		previousEtatbutton = true;
-		if (displayMode < 2 )
+		if (displayMode < 3 )
 		{
 			displayMode++;
 		}
@@ -919,7 +964,7 @@ void loop() {
 	if (millis()> lastSaveData + 30000)
 	{
 		lastSaveData = millis();
-		saveData();
+		//saveData();
 	}
 	
 
