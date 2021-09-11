@@ -666,6 +666,15 @@ void EncodB() {
 	 Serial.println("-");
  }
 
+
+    /**************************************************************************/
+    /*!
+        @brief    analyse du message
+        @param    packetSize
+                  
+        @return   void
+    */
+    /**************************************************************************/
 void onReceive(int packetSize)
 {
 	if (packetSize == 0) return;          // if there's no packet, return
@@ -747,6 +756,8 @@ void setup() {
 		ouvertureMax = preferences.getLong("ouvertureMax",ouvertureMax);
 		maxIntensite = preferences.getLong("maxIntensite", maxIntensite);
 	}
+	
+	//TODO: essayer de changer  wire1 par wire
 	if (!ina260.begin(0x40, &Wire1)) {
 		Heltec.display->drawString(0,12,"Couldn't find INA260 chip");
 		Serial.println("Couldn't find INA260 chip");

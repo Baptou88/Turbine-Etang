@@ -14,14 +14,6 @@
         },
         {
             "path": "librairies"
-        },
-        {
-            "name": "testWebSocket",
-            "path": "..\\testWebSocket"
-        },
-        {
-            "name": "210902-165129-heltec_wifi_kit_32_v2",
-            "path": "..\\210902-165129-heltec_wifi_kit_32_v2"
         }
     ],
     "settings": {

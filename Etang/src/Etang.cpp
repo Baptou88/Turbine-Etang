@@ -16,6 +16,7 @@
 #include <esp_adc_cal.h>
 #include <driver/adc.h>
 
+
 #define PRGButton 0
 #define TAILLETAB 16
 
@@ -40,7 +41,7 @@ uint16_t voltage;
 #define MAXBATT                 4200    // The default Lipo is 4200mv when the battery is fully charged.
 #define LIGHT_SLEEP_VOLTAGE     3400  //3750    // Point where start light sleep
 #define MINBATT                 3300  //3200  // The default Lipo is 3200mv when the battery is empty...this WILL be low on the 3.3v rail specs!!!
-
+#define LO_BATT_SLEEP_TIME      10*60*1000*1000     // How long when low batt to stay in sleep (us)
 
 float temp = 0;
 float pressure = 0;
@@ -74,6 +75,10 @@ int Sortie[TAILLETAB];
 unsigned long Tempo[TAILLETAB];
 
 Preferences preferences;
+
+
+
+
 enum Etapes
 {
 	Init,
@@ -192,10 +197,10 @@ void AfficherNiveauJauge(void)
 
 
 void drawBattery(uint16_t voltage, bool sleep) {
-  	Heltec.display->setColor(BLACK);
+  	Heltec.display->setColor(OLEDDISPLAY_COLOR::BLACK);
 	Heltec.display->fillRect(99,0,29,24);
 
-	Heltec.display->setColor(WHITE);
+	Heltec.display->setColor(OLEDDISPLAY_COLOR::WHITE);
 	Heltec.display->drawRect(104,0,12,6);
 	Heltec.display->fillRect(116,2,1,2);
 
@@ -339,11 +344,11 @@ void EvolutionGraphe(void) {
 		Heltec.display->clear();
 		displayData();
 		
-		Heltec.display->setColor(BLACK);
+		Heltec.display->setColor(OLEDDISPLAY_COLOR::BLACK);
 		
 		Heltec.display->fillRect(5,30,114,34);		
 		
-		Heltec.display->setColor(WHITE);
+		Heltec.display->setColor(OLEDDISPLAY_COLOR::WHITE);
 		Heltec.display->drawRect(4,29,115,35);	
 		Heltec.display->drawString(20,40,"Mise en Veille");
 		
@@ -688,6 +693,30 @@ void loop() {
 
 
 	voltage = SampleBattery();
+
+	  if (voltage < MINBATT) {                  // Low Voltage cut off shut down to protect battery as long as possible
+    Heltec.display->setColor(OLEDDISPLAY_COLOR::WHITE);
+    Heltec.display->setFont(ArialMT_Plain_10);
+    Heltec.display->setTextAlignment(TEXT_ALIGN_CENTER);
+    Heltec.display->drawString(64,24,"Shutdown!!");
+	Heltec.display->drawString(64,36,(String)voltage);
+    Heltec.display->display();
+    delay(2000);
+    //#if defined(__DEBUG) && __DEBUG > 0
+    Serial.printf(" !! Shutting down...low battery volotage: %dmV.\n",voltage);
+    delay(10);
+    //#endif
+    esp_sleep_enable_timer_wakeup(LO_BATT_SLEEP_TIME);
+    esp_deep_sleep_start();
+  } else if (voltage < LIGHT_SLEEP_VOLTAGE) {     // Use light sleep once on battery
+    uint64_t s = VBATT_SAMPLE;
+    //#if defined(__DEBUG) && __DEBUG > 0
+    Serial.printf(" - Light Sleep (%dms)...battery volotage: %dmV.\n",(int)s,voltage);
+    delay(20);
+    //#endif
+    esp_sleep_enable_timer_wakeup(s*1000);     // Light Sleep does not flush buffer
+    esp_light_sleep_start();
+  }
 
 	if (millis() - previousSend > 5000)
 	{

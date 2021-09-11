@@ -26,6 +26,7 @@
 
 #include "MasterLib.h"
 #include "websocket.h"
+#include "connexionWifi.h"
 
 
 
@@ -55,10 +56,7 @@ board *allBoard[3] = {  &localboard, &EtangBoard , &TurbineBoard};
 EmodeTurbine modeTurbine = Manuel;
 const char* ntpServer = "pool.ntp.org";
 
-// Definition de parametre Wifi
 
-const char* SSID = "Livebox-44C1";
-const char* PASSWORD = "20AAF66FCE1928F64292F3E28E";
 
 //const char* SSID = "Honor 10";
 //const char* PASSWORD = "97540708";
@@ -112,7 +110,12 @@ unsigned long lastSaveData = 0;
 Message receivedMessage;
 
 
+//Static IpAdress
+IPAddress local_IP(192,168,1,200);
 
+IPAddress gateway(192,168,1,1);
+
+IPAddress subnet(255,255,255,0);
 
 const char index_html[] PROGMEM = R"rawliteral(
 <!DOCTYPE HTML>
@@ -544,6 +547,97 @@ void RouteHttp() {
 	
 }
 
+void WifiEvent(WiFiEvent_t event){
+	Serial.printf("[WiFi-event] event: %d\n", event);
+	switch (event) {
+    case SYSTEM_EVENT_WIFI_READY: 
+      Serial.println("WiFi interface ready");
+      break;
+    case SYSTEM_EVENT_SCAN_DONE:
+      Serial.println("Completed scan for access points");
+      break;
+    case SYSTEM_EVENT_STA_START:
+      Serial.println("WiFi client started");
+      break;
+    case SYSTEM_EVENT_STA_STOP:
+      Serial.println("WiFi clients stopped");
+      break;
+    case SYSTEM_EVENT_STA_CONNECTED:
+      Serial.println("Connected to access point");
+      break;
+    case SYSTEM_EVENT_STA_DISCONNECTED:
+      Serial.println("Disconnected from WiFi access point");
+      //WiFi.begin(ssid, password);
+      break;
+    case SYSTEM_EVENT_STA_AUTHMODE_CHANGE:
+      Serial.println("Authentication mode of access point has changed");
+      break;
+    case SYSTEM_EVENT_STA_GOT_IP:
+      Serial.println("Obtained IP address: ");
+      Serial.println("	local IP: " + (String)WiFi.localIP().toString());
+	  Serial.println("	DNS   IP: " + (String)WiFi.dnsIP().toString());
+
+	  timeClient.begin();
+		if(!timeClient.update()) {
+			timeClient.forceUpdate();
+		}
+	  Serial.println(timeClient.getFormattedTime());
+      break;
+    case SYSTEM_EVENT_STA_LOST_IP:
+      Serial.println("Lost IP address and IP address is reset to 0");
+      break;
+    case SYSTEM_EVENT_STA_WPS_ER_SUCCESS:
+      Serial.println("WiFi Protected Setup (WPS): succeeded in enrollee mode");
+      break;
+    case SYSTEM_EVENT_STA_WPS_ER_FAILED:
+      Serial.println("WiFi Protected Setup (WPS): failed in enrollee mode");
+      break;
+    case SYSTEM_EVENT_STA_WPS_ER_TIMEOUT:
+      Serial.println("WiFi Protected Setup (WPS): timeout in enrollee mode");
+      break;
+    case SYSTEM_EVENT_STA_WPS_ER_PIN:
+      Serial.println("WiFi Protected Setup (WPS): pin code in enrollee mode");
+      break;
+    case SYSTEM_EVENT_AP_START:
+      Serial.println("WiFi access point started");
+      break;
+    case SYSTEM_EVENT_AP_STOP:
+      Serial.println("WiFi access point  stopped");
+      break;
+    case SYSTEM_EVENT_AP_STACONNECTED:
+      Serial.println("Client connected");
+      break;
+    case SYSTEM_EVENT_AP_STADISCONNECTED:
+      Serial.println("Client disconnected");
+      break;
+    case SYSTEM_EVENT_AP_STAIPASSIGNED:
+      Serial.println("Assigned IP address to client");
+      break;
+    case SYSTEM_EVENT_AP_PROBEREQRECVED:
+      Serial.println("Received probe request");
+      break;
+    case SYSTEM_EVENT_GOT_IP6:
+      Serial.println("IPv6 is preferred");
+      break;
+    case SYSTEM_EVENT_ETH_START:
+      Serial.println("Ethernet started");
+      break;
+    case SYSTEM_EVENT_ETH_STOP:
+      Serial.println("Ethernet stopped");
+      break;
+    case SYSTEM_EVENT_ETH_CONNECTED:
+      Serial.println("Ethernet connected");
+      break;
+    case SYSTEM_EVENT_ETH_DISCONNECTED:
+      Serial.println("Ethernet disconnected");
+      break;
+    case SYSTEM_EVENT_ETH_GOT_IP:
+      Serial.println("Obtained IP address");
+      break;
+    default: break;
+	}
+}
+
 String wifiStatusToString(wl_status_t Status) {
 	switch (Status)
 	{
@@ -586,8 +680,16 @@ void displayData(void) {
 		Heltec.display->drawString(0, 15, wifiStatusToString( WiFi.status()));
 		
 		Heltec.display->drawString(0, 27, "http://" + String(HOSTNAME) + ".local");
-		//Heltec.display->drawString(40, 45, String(WiFi.localIP()[0]) + "." + String(WiFi.localIP()[1]) + "." + String(WiFi.localIP()[2]) + "." + String(WiFi.localIP()[3]));
-		Heltec.display->drawString(40, 45, String(WiFi.localIP().toString()));
+		if (WiFi.isConnected())
+		{
+			Heltec.display->drawString(40, 45, String(WiFi.localIP().toString()));
+		} else
+		{
+			Heltec.display->drawString(40, 45, "not connected");
+		}
+		
+		
+				
 		break;
 	case 1:
 		Heltec.display->drawLogBuffer(1, 1);
@@ -771,29 +873,29 @@ void onReceive(int packetSize)
 
 void  initWifi(void)
 {
+
+	// Configures static IP address
+	if (!WiFi.config(local_IP, gateway, subnet,IPAddress(8,8,8,8))) {
+		Serial.println("STA Failed to configure");
+	}
+	
+
 	Heltec.display->clear();
 	Serial.print("Connecting to ");
 	Serial.println(SSID);
 	Heltec.display->drawString(0, 00, "Connecting to ");
 	Heltec.display->drawString(00, 10, SSID);
 	Heltec.display->display();
-	WiFi.begin(SSID, PASSWORD);
-	while (WiFi.status() != WL_CONNECTED) {
-		delay(500);
-		Serial.print(".");
-	}
-	// Print local IP address 
-	Serial.println("");
-	Serial.println("WiFi connected at IP address:");
-	Serial.println(WiFi.localIP());
-	Heltec.display->drawString(0, 20, "WiFi connected at IP address:");
-	Heltec.display->drawString(0, 30, String(WiFi.localIP()[0]) + "." + String(WiFi.localIP()[1]) + "." + String(WiFi.localIP()[2]) + "." + String(WiFi.localIP()[3]));
+
+	WiFi.onEvent(WifiEvent);
+
 	WiFi.mode(WIFI_STA);
+	WiFi.begin(SSID, PASSWORD);
+	
 	// Start Web Server
 	serverHTTP.begin();
 
 	Heltec.display->drawString(0, 40, "server started");
-	//Heltec.display->drawString(10, 12, String(WiFi.localIP()[0]) + "." + String(WiFi.localIP()[1]) + "." + String(WiFi.localIP()[2]) + "." + String(WiFi.localIP()[3]));
 	Heltec.display->display();
 	if (MDNS.begin(HOSTNAME)) {
 		MDNS.addService("http", "tcp", 80);
@@ -831,10 +933,7 @@ void InitSD(void) {
 
 }
 
-void printLocalTime()
-{
-  Serial.println(timeClient.getFormattedTime());
-}
+
 
 void gestionPower(void){
 	if (millis()- lastBatterycheck >=  + 15000)
@@ -889,10 +988,7 @@ void setup() {
 
 	myPID.setTimeStep(5000);
 
-	timeClient.begin();
-	while(!timeClient.update()) {
-    	timeClient.forceUpdate();
-  	}
+	
 
 	//battery power
 	
@@ -905,6 +1001,7 @@ void setup() {
 
 // the loop function runs over and over again until power down or reset
 void loop() {
+   
    
    AffichagePixel();
 	//    if (EtangBoard.lastmessage != 0)
