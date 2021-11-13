@@ -11,6 +11,7 @@
 //#include <HTTP_Method.h>
 #include <SPIFFS.h>
 #include <WiFi.h>
+#include <ArduinoOTA.h>
 #include <ESPAsyncWebServer.h>
 #include <ESPmDNS.h>
 #include <SD.h>
@@ -52,11 +53,12 @@ board EtangBoard("Etang", ETANG);
 board TurbineBoard("Turbine", TURBINE);
 
 board *allBoard[3] = {  &localboard, &EtangBoard , &TurbineBoard};
+unsigned long lastDemandeStatut = 0;
 
 EmodeTurbine modeTurbine = Manuel;
 const char* ntpServer = "pool.ntp.org";
 
-
+byte lastLoraChecked = 0;
 
 //const char* SSID = "Honor 10";
 //const char* PASSWORD = "97540708";
@@ -111,67 +113,11 @@ Message receivedMessage;
 
 
 //Static IpAdress
-IPAddress local_IP(192,168,1,200);
-
+IPAddress local_IP(192,168,1,148);
 IPAddress gateway(192,168,1,1);
-
 IPAddress subnet(255,255,255,0);
 
-const char index_html[] PROGMEM = R"rawliteral(
-<!DOCTYPE HTML>
-<html lang="fr">
-<head>
-<meta charset="UTF-8">
-<title>EtangTurbine</title>
-<style>
-    html {font-family: Arial; display: inline-block; text-align: center;}
-    h2 {font-size: 3.0rem;}
-    p {font-size: 3.0rem;}
-    body {max-width: 600px; margin:0px auto; padding-bottom: 25px;}
-    .switch {position: relative; display: inline-block; width: 120px; height: 68px} 
-    .switch input {display: none}
-    .slider {position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; border-radius: 6px}
-    .slider:before {position: absolute; content: ""; height: 52px; width: 52px; left: 8px; bottom: 8px; background-color: #fff; -webkit-transition: .4s; transition: .4s; border-radius: 3px}
-    input:checked+.slider {background-color: #b30000}
-    input:checked+.slider:before {-webkit-transform: translateX(52px); -ms-transform: translateX(52px); transform: translateX(52px)}
-	.container{background-color: #ccc; border:1px #b30000 solid; width: 300px; margin: auto;}
-  </style>
-</head>
-<body>
-<h1>Bonjour</h1>
-%BUTTONPLACEHOLDER%
-<h2>%test%</h2>
-<div class="container">%ListeLoRa%</div>
-<script>function toggleCheckbox(element) {
-  var xhr = new XMLHttpRequest();
-  if(element.checked){ xhr.open("GET", "/update?output="+element.id+"&state=1", true); }
-  else { xhr.open("GET", "/update?output="+element.id+"&state=0", true); }
-  xhr.send();
-}
-function maj(){
-var xhr = new XMLHttpRequest();
-xhr.onreadystatechange = function() {
-    if (this.readyState == 4 && this.status == 200) {
-     
-	var myObj = JSON.parse( this.responseText);
-for (i in myObj.boards) {
-  x = document.getElementById('board-' + myObj.boards[i].Name)
-	x.getElementsByClassName("message")[0].innerHTML = myObj.boards[i].lastMessage.content
-//console.log(x);
-}
-console.log(myObj);
 
-    }
-  };
-xhr.open("GET", "/maj", true);
-xhr.send();
-setTimeout(maj,5000);
-}
-maj();
-</script>
-</body>
-</html>
-)rawliteral";
 String processor(const String& var) {
 	//Serial.println(var);
 	String retour = String();
@@ -294,6 +240,13 @@ JsonObject getJsonFromFile(DynamicJsonDocument *doc, String filename){
 	}
 	
 }
+// bool appendJsontoFile(DynamicJsonDocument *doc, String filename){
+// 	File file = SPIFFS.open(filename, "a");
+// 	serializeJson(doc, file);
+// 	file.println();
+// 	file.close();
+// 	return true;
+// }
 bool saveJsonToFile(DynamicJsonDocument *doc, String filename){
 	File myFile = SPIFFS.open(filename, FILE_WRITE);
 	if (myFile)
@@ -306,6 +259,7 @@ bool saveJsonToFile(DynamicJsonDocument *doc, String filename){
 		return false;
 	}
 }
+
 void InitBoard(void) {
 	EtangBoard.AddCommand("SaveEEPROM", 0,"button", "SEEPROM");
 	EtangBoard.AddCommand("ClearEEPROM", 1, "button", "ClearEEPROM");
@@ -316,8 +270,8 @@ void InitBoard(void) {
 
 	TurbineBoard.AddCommand("OuvertureTotale", 0, "button", "OT");
 	TurbineBoard.AddCommand("FermetureTotale", 1, "button", "FT");
-	TurbineBoard.AddCommand("+1T  Moteur",2,"button","D360");
-	TurbineBoard.AddCommand("-1T  Moteur",3,"button","D-360");
+	TurbineBoard.AddCommand("+1T  Moteur",2,"button","Deg360");
+	TurbineBoard.AddCommand("-1T  Moteur",3,"button","Deg-360");
 	TurbineBoard.AddCommand("SetMin",4,"button","SMIN");
 	TurbineBoard.AddCommand("SetMax",5,"button","SMAX");
 
@@ -438,6 +392,11 @@ void TraitementCommande(String c){
 	// 		break;
 	// 	}
 	// }
+	if (c.startsWith("DeepSLEEP"))
+	{
+		/* code */
+	}
+	
 	
 		
 }
@@ -446,10 +405,7 @@ void RouteHttp() {
 	serverHTTP.onNotFound([](AsyncWebServerRequest* request) {
 		request->send_P(404, "text/html", "404 notfound");
 		});
-	serverHTTP.on("/index", HTTP_GET, [](AsyncWebServerRequest* request) {
-		 String S = "bonjour" + String(localAddress);
-		request->send_P(200, "text/html", index_html ,processor);
-	});
+	
 	serverHTTP.on("/update", HTTP_GET, [](AsyncWebServerRequest* request) {
 		Heltec.display->println(String(request->url()));
 		if (request->hasParam("output") && request->hasParam("state")) {
@@ -474,7 +430,11 @@ void RouteHttp() {
 			
 			request->send(200, "text/plain", "J'ai recu: b=" + request->getParam("b")->value() + " et c: " + request->getParam("c")->value() );
 			
+		} else if (request->hasParam("DeepSleep"))
+		{
+			
 		}
+		
 		
 	});
 	serverHTTP.on("/maj", HTTP_GET, [](AsyncWebServerRequest* request) {
@@ -532,6 +492,7 @@ void RouteHttp() {
 	serverHTTP.on("/data.json", HTTP_GET, [](AsyncWebServerRequest* request) {
 		request->send(SPIFFS, "/data.json", "application/json");
 		});
+	
 	serverHTTP.on("/secret.html",HTTP_GET,[](AsyncWebServerRequest* request){
 		if(!request->authenticate("admin", "admin")){
 			return request->requestAuthentication();
@@ -581,7 +542,8 @@ void WifiEvent(WiFiEvent_t event){
 		if(!timeClient.update()) {
 			timeClient.forceUpdate();
 		}
-	  Serial.println(timeClient.getFormattedTime());
+	  Serial.println("Time: " + (String)timeClient.getFormattedTime());
+	  ArduinoOTA.begin();
       break;
     case SYSTEM_EVENT_STA_LOST_IP:
       Serial.println("Lost IP address and IP address is reset to 0");
@@ -874,8 +836,15 @@ void onReceive(int packetSize)
 void  initWifi(void)
 {
 
+	
+	
+	if (WiFi.setHostname("esp32Lora22"))
+	{
+		Serial.println("hostname ok");
+	}
+
 	// Configures static IP address
-	if (!WiFi.config(local_IP, gateway, subnet,IPAddress(8,8,8,8))) {
+	if (!WiFi.config(local_IP, gateway, subnet,gateway)) { //8,8,8,8
 		Serial.println("STA Failed to configure");
 	}
 	
@@ -889,6 +858,10 @@ void  initWifi(void)
 
 	WiFi.onEvent(WifiEvent);
 
+	// Mode point d'accès
+  	WiFi.softAP("Esp32 Lora");
+	  ArduinoOTA.setHostname("Esp32 Lora");
+	// Mode de connexion
 	WiFi.mode(WIFI_STA);
 	WiFi.begin(SSID, PASSWORD);
 	
@@ -1054,8 +1027,38 @@ void loop() {
 			allBoard[i]->newMessage = false;
 			deserializeResponse(allBoard[i]->localAddress, allBoard[i]->LastMessage.Content);
 		}
+
+
+		
+		// if ((millis() - allBoard[i]->lastDemandeStatut > 10000) &&  (millis() - allBoard[i]->lastmessage > 10000))
+		// {
+		// 	Serial.println("Demande Statut: 0x" + (String)allBoard[i]->localAddress );
+		// 	sendMessage(allBoard[i]->localAddress, "DemandeStatut");
+		// 	LoRa.receive();
+		// 	allBoard[i]->lastDemandeStatut = millis();
+		// }
+
+	}
+	if (millis()- lastDemandeStatut > 30000)
+	{
+		lastDemandeStatut = millis();
+		if (lastLoraChecked > 12 || lastLoraChecked == 0)
+		{
+			lastLoraChecked = 11;
+		} 
+			
+			Serial.println("Demande Statut: 0x" + (String)lastLoraChecked );
+			sendMessage(lastLoraChecked, "DemandeStatut");
+			LoRa.receive();
+			lastLoraChecked++;
+		
+
+		
 		
 	}
+	
+	
+	
 	
 
 	if (millis()> lastSaveData + 30000)
@@ -1095,6 +1098,7 @@ void loop() {
 		}
 	}*/
 	ws.cleanupClients();
+	ArduinoOTA.handle();
 	delay(20);
 	
 }

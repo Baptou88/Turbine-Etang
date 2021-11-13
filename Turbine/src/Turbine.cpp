@@ -58,7 +58,7 @@ volatile unsigned long countTaqui = 0;
 float rpmTurbine = 0;
 unsigned long previousCalculTaqui = 0;
 
-
+bool EnvoyerStatut = false;
 
 
 float tourMoteurVanne = 18 / float(44); 
@@ -68,14 +68,15 @@ unsigned long dernieredetectionEncodA = 0;
 bool bOuvertureTotale = false;
 bool bFermetureTotale = false;
 Message receivedMessage;
-int incCodeuse = 600;
-long ouvertureMax = 1800;
+int incCodeuse = 400;
+long ouvertureMax = 2000;
 byte displayMode = 0;
 long consigneMoteur = 0;
 volatile int sensMoteur = 0;
 long posMoteur;
 bool previousEtatbutton = false;
 //Automate
+
 
 enum Etapes
 {
@@ -94,6 +95,8 @@ enum Etapes
 	POMF,
 	STOPPOMF,
 	STOPPOMO,
+	
+
 };
 String EtapeToString(Etapes E) {
 	switch (E)
@@ -265,6 +268,12 @@ void acquisitionEntree(void) {
 	}
 }
 void TraitementCommande(String c){
+	Serial.println("TraitementCommande: " + (String)c);
+	if (c == "DemandeStatut")
+	{
+		EnvoyerStatut = true;
+	}
+	
 	if (c.startsWith("M"))
 	{
 		c.remove(0,1);
@@ -279,9 +288,9 @@ void TraitementCommande(String c){
 		}
 		/*consigneMoteur = abs(consigneMoteur);*/
 	}
-	if (c.startsWith("D"))
+	if (c.startsWith("DEG"))
 	{
-		c.remove(0, 1);
+		c.remove(0, 3);
 		consigneMoteur = degToInc(c.toInt());
 		Serial.println(consigneMoteur);
 		if (consigneMoteur > 0)
@@ -312,6 +321,7 @@ void TraitementCommande(String c){
 	if (c == "SMAX")
 	{
 		ouvertureMax = posMoteur;
+		preferences.putInt("ouvertureMax",ouvertureMax);
 	}
 	if (c == "SetMaxI")
 	{
@@ -327,6 +337,21 @@ void TraitementCommande(String c){
 		preferences.putInt("ouvertureMax",ouvertureMax);
 		
 	}
+	if (c.startsWith("DeepSleep="))
+	{
+		c.replace("DeepSleep=","");
+		Serial.println("DeepSleep " + String(c.toInt()));
+		esp_sleep_enable_timer_wakeup(c.toInt()*1000);
+		esp_deep_sleep_start();
+	}
+	if (c.startsWith("LightSleep="))
+	{
+		c.replace("LightSleep=","");
+		Serial.println("LightSleep " + String(c.toInt()));
+		esp_sleep_enable_timer_wakeup(c.toInt()*1000);
+		esp_light_sleep_start();
+	}
+	
 	
 	
 }
@@ -346,7 +371,7 @@ void EvolutionGraphe(void) {
 	Transition[9] = Etape[OuvrirVanne] && (consigneMoteur < 0 || Entree[FCVanneOuverte]);
 	Transition[10] = Etape[FermerVanne] && (consigneMoteur > 0 || Entree[FCVanneFerme]);
 	Transition[11] = Etape[StopMoteur] && finTempo(0);
-	Transition[12] = Etape[AttenteOrdre] && finTempo(1);
+	Transition[12] = Etape[AttenteOrdre] && EnvoyerStatut;
 	Transition[13] = Etape[EnvoyerMessage] ;
 	Transition[14] = Etape[AttenteOrdre] && bOuvertureTotale;
 	Transition[15] = Etape[AttenteOrdre] && bFermetureTotale;
@@ -473,6 +498,7 @@ void EvolutionGraphe(void) {
 		Serial.println(json);
 		sendMessage(MASTER, json);
 		LoRa.receive();
+		EnvoyerStatut = false;
 		
 	}
 	if (Etape[OuvertureTotale])
@@ -729,11 +755,11 @@ void Taqui(void){
 // the setup function runs once when you press reset or power the board
 void setup() {
 
-	Wire1.begin(SDA, SCL); 
+	Wire.begin(SDA_OLED, SCL_OLED); 
 	Heltec.begin(true, true, true, true, BAND);
 	Heltec.display->setLogBuffer(10,30);
-	pinMode(pinFCVanneFermee, INPUT_PULLDOWN );
-	pinMode(pinFCVanneOuverte, INPUT_PULLUP);
+	pinMode(pinFCVanneFermee, INPUT );
+	pinMode(pinFCVanneOuverte, INPUT);
 
 	pinMode(pinFermetureVanne, OUTPUT);
 	pinMode(pinOuvertureVanne, OUTPUT);
@@ -758,7 +784,7 @@ void setup() {
 	}
 	
 	//TODO: essayer de changer  wire1 par wire
-	if (!ina260.begin(0x40, &Wire1)) {
+	if (!ina260.begin(0x40, &Wire)) {
 		Heltec.display->drawString(0,12,"Couldn't find INA260 chip");
 		Serial.println("Couldn't find INA260 chip");
 		Heltec.display->display();

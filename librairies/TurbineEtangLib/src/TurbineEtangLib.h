@@ -58,7 +58,7 @@ public:
 };
 
 
-String string_wakeup_reason();
-
+String string_wakeup_reason(esp_sleep_wakeup_cause_t wakeup_reason);
+String wakeup_touchpad(touch_pad_t touchPin);
 #endif
 

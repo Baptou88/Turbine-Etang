@@ -23,7 +23,9 @@
             "functional": "cpp",
             "fstream": "cpp",
             "xlocmes": "cpp",
-            "*.tcc": "cpp"
+            "*.tcc": "cpp",
+            "algorithm": "cpp",
+            "xstring": "cpp"
         }
     }
 }

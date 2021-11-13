@@ -166,6 +166,10 @@ function updateb(board, action) {
   xhr.open("GET", "/update?b=" + board + "&c="+ action, true);
   xhr.send();
 }
+function updateSleep(board, mode) {
+  SleepTime = document.getElementById("SleepTime").value;
+  updateb(board,mode + "Sleep=" + SleepTime)
+}
 /**
  * maj
  */

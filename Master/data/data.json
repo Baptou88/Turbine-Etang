@@ -1,28 +1,5 @@
-
 {
     "data": [
-    {
-        "name": "niveau",
-        "niveauEtang":0.40,
-        "ouverture": 0.25,
-        "time": 1626274955
-    },
-    {
-        "name": "niveau",
-        "niveauEtang":0.60,
-        "ouverture": 0.30,
-        "time": 1626274985
-    },
-    {
-        "name": "niveau",
-        "niveauEtang":0.70,
-        "ouverture": 0.18,
-        "time": 1626275025
-    },
-    {
-        "name": "niveau",
-        "niveauEtang":0.50,
-        "ouverture": 0.10,
-        "time": 1626275325
-    }
-]}
+        
+    ]
+}

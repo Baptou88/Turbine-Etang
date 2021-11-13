@@ -4,7 +4,7 @@
  Author:	Baptou
 */
 
-// the setup function runs once when you press reset or power the board
+
 #include <EEPROM.h>
 #include <heltec.h>
 #include <VL53L1X.h>
@@ -64,6 +64,8 @@ int NiveauMin = 1000;
 
 const int longeurEtang = 12000;
 const int largeurEtang= 6000;
+
+bool EnvoyerStatut = false;
 
 // déclaration des tableaux 
 byte Etape[TAILLETAB];
@@ -269,7 +271,21 @@ void displayData(void)
 	
 	
 }
-
+void EnvoyerMsgStatut(void){
+	StaticJsonDocument<128> doc;
+	String json; 
+	doc["mesure"] = vl53l1x.ranging_data.range_mm;
+	doc["Niveau"] = PNiveau();
+	doc["RangeStatus"] = VL53L1X::rangeStatusToString( vl53l1x.ranging_data.range_status);
+	doc["temp"] = temp,
+	doc["pressure"] = pressure;
+	
+	serializeJson(doc,json);
+	//Serial.println("voila ce que jenvoi: "+ String(json));
+	
+	sendMessage(0x0A, json);
+	LoRa.receive();
+}
 void EvolutionGraphe(void) {
 
 	// calcul des transitions
@@ -359,15 +375,19 @@ void EvolutionGraphe(void) {
 	if (Etape[Sleep])
 	{
 		//Serial.println("Mise en Veille");
-		Heltec.display->displayOff();
-		Heltec.display->clear();
+		//Heltec.display->displayOff();
+		//Heltec.display->clear();
+		Heltec.display->sleep();
+		Heltec.VextOFF();
 		
 	}
 	if (Etape[Reveil])
 	{
 		//Serial.println("Reveil");
-		Heltec.display->displayOn();
-		Heltec.display->clear();
+		//Heltec.display->displayOn();
+		Heltec.VextON();
+		Heltec.display->wakeup();
+		//Heltec.display->clear();
 		Heltec.display->drawString(0,0,"Ecran On");
 		startTempo(0,30000);
 	}
@@ -407,6 +427,13 @@ void initPrefs(void){
 }
 
 void TraitementCommande(String Commande){
+	Serial.println("TraitementCommande: " + (String)Commande);
+	if (Commande.startsWith("DemandeStatut"))
+	{
+		Commande.replace("DemandeStatut","");
+		EnvoyerStatut = true;
+	}
+	
 	if (Commande.startsWith("SMAX"))
 	{
 		//Commande.remove(0,3);
@@ -427,15 +454,25 @@ void TraitementCommande(String Commande){
 		preferences.putInt("NiveauMin",NiveauMin);
 		Heltec.display->println("Save EEPROM ok !");
 	}
-	if (Commande== "SLEEP")
+	if (Commande.startsWith("DeepSleep="))
 	{
-		
-		Serial.println("Mise en Veille");
-	
-		Heltec.display->println("Mise en Veille");
+		Commande.replace("DeepSleep=","");
+		Serial.println("DeepSleep " + String(Commande.toInt()));
+		//sendMessage(MASTER,"OK");
+		vl53l1x.stopContinuous();
 		delay(1000);
-		esp_sleep_enable_timer_wakeup(10000000); //10sec
+		//esp_sleep_enable_gpio_wakeup();
+		//esp_sleep_enable_ext0_wakeup(GPIO_NUM_26,LOW);
+		esp_sleep_enable_timer_wakeup(Commande.toInt()*1000); 
 		esp_deep_sleep_start();
+	}
+	if (Commande.startsWith("LightSleep="))
+	{
+		Commande.replace("LightSleep=","");
+		Serial.println("LightSleep " + String(Commande.toInt()));
+		vl53l1x.stopContinuous();
+		esp_sleep_enable_timer_wakeup(Commande.toInt()*1000);
+		esp_light_sleep_start();
 	}
 	if (Commande.startsWith("SLEEPTP"))
 	{
@@ -496,7 +533,7 @@ void onReceive(int packetSize)
 	Serial.println();
 	Heltec.display->println("0x" + String(receivedMessage.sender,HEX) + " to 0x" + String(receivedMessage.recipient, HEX) + " " + String(receivedMessage.Content));
 
-	//TraitementCommande(receivedMessage.Content);
+	TraitementCommande(receivedMessage.Content);
 }
 
 // Poll the proper ADC for VBatt on Heltec Lora 32 with GPIO21 toggled
@@ -600,9 +637,12 @@ void InitBatteryReader(){
   digitalWrite(VBATT_GPIO, LOW);              // ESP32 Lora v2.1 reads on GPIO37 when GPIO21 is low
   delay(ADC_READ_STABILIZE);                  // let GPIO stabilize
 }
+
+// the setup function runs once when you press reset or power the board
 void setup() {
 	Heltec.begin(true, true, true, true, 868E6);
-	
+	Serial.println(string_wakeup_reason(esp_sleep_get_wakeup_cause()));
+	Serial.println(wakeup_touchpad(esp_sleep_get_touchpad_wakeup_status()));
 	pinMode(LED_BUILTIN, OUTPUT);
 	pinMode(PRGButton, INPUT);
 
@@ -662,7 +702,8 @@ void setup() {
 	// Start continuous readings at a rate of one measurement every 50 ms (the
 	// inter-measurement period). This period should be at least as long as the
 	// timing budget.
-	vl53l1x.startContinuous(50);
+	vl53l1x.startContinuous(500);
+	
 	// vl53l1x.setROICenter(64);
 	vl53l1x.setROISize(5,5);
 	
@@ -694,52 +735,59 @@ void loop() {
 
 	voltage = SampleBattery();
 
-	  if (voltage < MINBATT) {                  // Low Voltage cut off shut down to protect battery as long as possible
-    Heltec.display->setColor(OLEDDISPLAY_COLOR::WHITE);
-    Heltec.display->setFont(ArialMT_Plain_10);
-    Heltec.display->setTextAlignment(TEXT_ALIGN_CENTER);
-    Heltec.display->drawString(64,24,"Shutdown!!");
-	Heltec.display->drawString(64,36,(String)voltage);
-    Heltec.display->display();
-    delay(2000);
-    //#if defined(__DEBUG) && __DEBUG > 0
-    Serial.printf(" !! Shutting down...low battery volotage: %dmV.\n",voltage);
-    delay(10);
-    //#endif
-    esp_sleep_enable_timer_wakeup(LO_BATT_SLEEP_TIME);
-    esp_deep_sleep_start();
-  } else if (voltage < LIGHT_SLEEP_VOLTAGE) {     // Use light sleep once on battery
-    uint64_t s = VBATT_SAMPLE;
-    //#if defined(__DEBUG) && __DEBUG > 0
-    Serial.printf(" - Light Sleep (%dms)...battery volotage: %dmV.\n",(int)s,voltage);
-    delay(20);
-    //#endif
-    esp_sleep_enable_timer_wakeup(s*1000);     // Light Sleep does not flush buffer
-    esp_light_sleep_start();
-  }
+	// // if (voltage < MINBATT) {                  // Low Voltage cut off shut down to protect battery as long as possible
+	// // 	Heltec.display->setColor(OLEDDISPLAY_COLOR::WHITE);
+	// // 	Heltec.display->setFont(ArialMT_Plain_10);
+	// // 	Heltec.display->setTextAlignment(TEXT_ALIGN_CENTER);
+	// // 	Heltec.display->drawString(64,24,"Shutdown!!");
+	// // 	Heltec.display->drawString(64,36,(String)voltage);
+	// // 	Heltec.display->display();
+	// // 	delay(2000);
+	// // 	#if defined(__DEBUG) && __DEBUG > 0
+	// // 	Serial.printf(" !! Shutting down...low battery volotage: %dmV.\n",voltage);
+	// // 	delay(10);
+	// // 	#endif
+	// // 	esp_sleep_enable_timer_wakeup(LO_BATT_SLEEP_TIME);
+	// // 	esp_deep_sleep_start();
+	// // } else if (voltage < LIGHT_SLEEP_VOLTAGE) {     // Use light sleep once on battery
+	// // 	uint64_t s = VBATT_SAMPLE;
+	// // 	#if defined(__DEBUG) && __DEBUG > 0
+	// // 	Serial.printf(" - Light Sleep (%dms)...battery volotage: %dmV.\n",(int)s,voltage);
+	// // 	delay(20);
+	// // 	#endif
+	// // 	esp_sleep_enable_timer_wakeup(s*1000);     // Light Sleep does not flush buffer
+	// // 	esp_light_sleep_start();
+	// // }
 
-	if (millis() - previousSend > 5000)
-	{
-		previousSend = millis();
-		//sendData();
-		StaticJsonDocument<128> doc;
-		String json; 
-		doc["mesure"] = vl53l1x.ranging_data.range_mm;
-		doc["Niveau"] = PNiveau();
-		doc["RangeStatus"] = VL53L1X::rangeStatusToString( vl53l1x.ranging_data.range_status);
-		doc["temp"] = temp,
-		doc["pressure"] = pressure;
+	// if (millis() - previousSend > 5000)
+	// {
+	// 	previousSend = millis();
+	// 	//sendData();
+	// 	StaticJsonDocument<128> doc;
+	// 	String json; 
+	// 	doc["mesure"] = vl53l1x.ranging_data.range_mm;
+	// 	doc["Niveau"] = PNiveau();
+	// 	doc["RangeStatus"] = VL53L1X::rangeStatusToString( vl53l1x.ranging_data.range_status);
+	// 	doc["temp"] = temp,
+	// 	doc["pressure"] = pressure;
 		
-		serializeJson(doc,json);
-		//Serial.println("voila ce que jenvoi: "+ String(json));
-		// sendMessage(0x0A, "Niveau: " + String(PNiveau())+ "," +
-		// 	"RangeStatus :" + VL53L1X::rangeStatusToString( vl53l1x.ranging_data.range_status) + "," +
-		// 	"PeakSignal :" + String(vl53l1x.ranging_data.peak_signal_count_rate_MCPS)+ "," +
-		// 	"AmbientSignal :" + String(vl53l1x.ranging_data.ambient_count_rate_MCPS)+ "," 
-		// );
-		sendMessage(0x0A, json);
-		LoRa.receive();
+	// 	serializeJson(doc,json);
+	// 	//Serial.println("voila ce que jenvoi: "+ String(json));
+	// 	// sendMessage(0x0A, "Niveau: " + String(PNiveau())+ "," +
+	// 	// 	"RangeStatus :" + VL53L1X::rangeStatusToString( vl53l1x.ranging_data.range_status) + "," +
+	// 	// 	"PeakSignal :" + String(vl53l1x.ranging_data.peak_signal_count_rate_MCPS)+ "," +
+	// 	// 	"AmbientSignal :" + String(vl53l1x.ranging_data.ambient_count_rate_MCPS)+ "," 
+	// 	// );
+	// 	sendMessage(0x0A, json);
+	// 	LoRa.receive();
+	// }
+
+	if (EnvoyerStatut)
+	{
+		EnvoyerMsgStatut();
+		EnvoyerStatut = false;
 	}
+	
 	if (Serial.available())
 	{
 		String s = Serial.readStringUntil('\r');
@@ -747,12 +795,12 @@ void loop() {
 		
 		
 	}
-	if (receivedMessage.Content != "")
-	{
-		Serial.println(receivedMessage.Content);
-		TraitementCommande(receivedMessage.Content);
-		receivedMessage.Content= "";
-	}
+	// if (receivedMessage. != "")
+	// {
+	// 	Serial.println(receivedMessage.Content);
+	// 	TraitementCommande(receivedMessage.Content);
+	// 	receivedMessage.Content= "";
+	// }
 	
 
 	// acquisition des entrées et stockage dans variables internes

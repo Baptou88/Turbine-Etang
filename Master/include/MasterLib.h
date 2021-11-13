@@ -52,6 +52,9 @@ public:
 			"}";
 	};
 	bool newMessage = false;
+
+	unsigned long lastDemandeStatut = 0;
+
 	Command Commands[10];
 	void AddCommand(String Name, int id, String Type, String Action) {
 		Commands[id].Action = Action;
