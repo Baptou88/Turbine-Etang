@@ -2,7 +2,7 @@
 #include "Heltec.h"
 #include <ESPAsyncWebServer.h>
 #include "MasterLib.h"
-
+#include <LinkedList.h>
 
 extern AsyncWebSocket ws;
 extern AsyncWebServer serverHTTP;
@@ -13,7 +13,8 @@ extern AsyncWebServer serverHTTP;
 // 	Auto
 // }EmodeTurbine;
 extern EmodeTurbine modeTurbine;
-extern board *allBoard[3];
+//extern board *allBoard[3];
+extern LinkedListB::LinkedList<board*> *allBoard;
 extern double OuvertureVanne;
 
 void notifyClients() {
@@ -22,7 +23,7 @@ void notifyClients() {
 			//"\"modeTurbine\":\"" + String(EmodeTurbinetoString(modeTurbine)) + "\"," + 
 			"\"modeTurbine\": {\"name\":\" " + String(EmodeTurbinetoString(modeTurbine)) + "\", \"id\":"+ modeTurbine + "}," + 
       "\"OuvertureVanne\": " + String(OuvertureVanne) + "," + 
-		"\"boards\" : [" + allBoard[0]->toJson() + "," + allBoard[1]->toJson() + "," + allBoard[2]->toJson() + "]}";
+		"\"boards\" : [" + allBoard->get(0)->toJson() + "," + allBoard->get(1)->toJson() + "," + allBoard->get(2)->toJson() + "]}";
 
   ws.textAll(retour);
 }

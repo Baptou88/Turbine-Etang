@@ -134,10 +134,10 @@ document.addEventListener('DOMContentLoaded', function () {
  });
 
 function update(element, action) {
-  console.log(element)
-  console.log(action)
+  console.log("update",element,action)
+ 
   board = element.parentElement.parentElement.id
-  
+  toggleLoading(element.parentElement.parentElement)
   board = board.replace("board-","")
   var xhr = new XMLHttpRequest();
   xhr.onreadystatechange = function() {
@@ -154,6 +154,7 @@ function update(element, action) {
 function updateb(board, action) {
   console.log(board);
   console.log(action)
+  console.log("updateb");
   var xhr = new XMLHttpRequest();
   xhr.onreadystatechange = function() {
       if (this.readyState == 4 && this.status == 200) {
@@ -170,6 +171,21 @@ function updateSleep(board, mode) {
   SleepTime = document.getElementById("SleepTime").value;
   updateb(board,mode + "Sleep=" + SleepTime)
 }
+
+/**
+ * 
+ * @param  el 
+ */
+function toggleLoading(el){
+  console.log("toggleloading",el);
+  spinner = el.querySelector(".spinner-border")
+  if (spinner.style.display === "none") {
+    spinner.style.display = "block";
+  } else {
+    spinner.style.display = "none";
+  }
+}
+
 /**
  * maj
  */

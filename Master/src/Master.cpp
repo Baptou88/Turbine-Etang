@@ -24,6 +24,7 @@
 #include <WiFiUdp.h>
 #include <Adafruit_NeoPixel.h>
 #include <AutoPID.h>
+#include <LinkedList.h>
 
 #include "MasterLib.h"
 #include "websocket.h"
@@ -34,6 +35,16 @@
 
 #define BAND 868E6
 #define PRGButton 0
+
+#define __DEBUG
+
+#ifdef __DEBUG
+	int intervalleEnvoi = 15000; // 15sec
+#endif
+#ifndef __DEBUG
+	int intervalleEnvoi = 60000; // 1 min
+#endif
+
 
 bool previousEtatbutton = false;
 SPIClass spi1;
@@ -48,11 +59,17 @@ NTPClient timeClient(ntpUDP);
 
 
 board localboard("Master", MASTER);
+
 board EtangBoard("Etang", ETANG);
 
 board TurbineBoard("Turbine", TURBINE);
 
-board *allBoard[3] = {  &localboard, &EtangBoard , &TurbineBoard};
+//board *allBoard[3] = {  &localboard, &EtangBoard , &TurbineBoard};
+
+
+//LinkedList<board*> allBoard = new LinkedList<board*>();
+LinkedListB::LinkedList<board*> *allBoard = new  LinkedListB::LinkedList<board*>();
+
 unsigned long lastDemandeStatut = 0;
 
 EmodeTurbine modeTurbine = Manuel;
@@ -131,31 +148,30 @@ String processor(const String& var) {
 	else if (var == "ListeLoRa")
 	{
 		
-		
-		for (byte i = 0; i < 3; i = i + 1) {
-			retour += "<div class=\"card mb-2\" id=\"board-"+ String(allBoard[i]->localAddress) + "\">\n";
-			retour += "<h4 class= \"card-title\">" + String(allBoard[i]->Name) + " <span class=\"text-muted\"> " + String(allBoard[i]->localAddress, HEX) +   " " + String(allBoard[i]->connected) + "</span></h4>\n";
-			
+		for (byte i = 0; i < allBoard->size(); i = i + 1) {
+			retour += "<div class=\"card mb-2\" id=\"board-"+ String(allBoard->get(i)->localAddress) + "\">\n";
+			retour += "<h4 class= \"card-title\">" + String(allBoard->get(i)->Name) + " <span class=\"text-muted\"> " + String(allBoard->get(i)->localAddress, HEX) +   " " + String(allBoard->get(i)->isConnected()) + "</span></h4>\n";
+			retour += "<div class=\"spinner-border\" role=\"status\" style=\"display:none\">\n<span class=\"visually-hidden\">Loading...</span>\n</div>";
 			retour += "<div class = \"card-body\">\n";
-			//retour += "<h5>LastMessage: </h5><div class=\"message\">" + allBoard[i]->LastMessage.Content + "</div>\n";
+			//retour += "<h5>LastMessage: </h5><div class=\"message\">" + allBoard->get(i)->LastMessage.Content + "</div>\n";
 			for (byte j = 0; j < 10; j++) 
 			{
-				if (allBoard[i]->Commands[j].Name != "")
+				if (allBoard->get(i)->Commands[j].Name != "")
 				{
-					if (allBoard[i]->Commands[j].Type == "button")
+					if (allBoard->get(i)->Commands[j].Type == "button")
 					{
-						retour += "<input type=\""+ allBoard[i]->Commands[j].Type + "\" name=\""+ allBoard[i]->Commands[j].Name + "\" value=\"" + allBoard[i]->Commands[j].Name + "\" onclick=\"update(this,"+ "'"+allBoard[i]->Commands[j].Action +"')\">\n";
+						retour += "<input type=\""+ allBoard->get(i)->Commands[j].Type + "\" name=\""+ allBoard->get(i)->Commands[j].Name + "\" value=\"" + allBoard->get(i)->Commands[j].Name + "\" onclick=\"update(this,"+ "'"+allBoard->get(i)->Commands[j].Action +"')\">\n";
 
-					} else if (allBoard[i]->Commands[j].Name == "textbox")
+					} else if (allBoard->get(i)->Commands[j].Name == "textbox")
 					{
-						retour += "<input type=\""+ allBoard[i]->Commands[j].Type + "\" name=\""+ allBoard[i]->Commands[j].Name + "\" value=\"" + allBoard[i]->Commands[j].Name + "\" onclick=\"update(this,"+ "'"+allBoard[i]->Commands[j].Action +"')\">\n";
+						retour += "<input type=\""+ allBoard->get(i)->Commands[j].Type + "\" name=\""+ allBoard->get(i)->Commands[j].Name + "\" value=\"" + allBoard->get(i)->Commands[j].Name + "\" onclick=\"update(this,"+ "'"+allBoard->get(i)->Commands[j].Action +"')\">\n";
 					}
-					//retour += "<input type=\""+ allBoard[i]->Commands[j].Type + "\" name=\""+ allBoard[i]->Commands[j].Name + "\" value=\"" + allBoard[i]->Commands[j].Name + "\" onclick=\"update(this,"+ "'"+allBoard[i]->Commands[j].Action +"')\">\n";
+					//retour += "<input type=\""+ allBoard->get(i)->Commands[j].Type + "\" name=\""+ allBoard->get(i)->Commands[j].Name + "\" value=\"" + allBoard->get(i)->Commands[j].Name + "\" onclick=\"update(this,"+ "'"+allBoard->get(i)->Commands[j].Action +"')\">\n";
 
 					
 				}
 			}
-			retour += "<button type=\"button\" class=\"btn btn-info btn-sm\" data-bs-toggle=\"modal\" data-bs-target=\"#modal"+ allBoard[i]->Name + "\">Open Modal</button>\n";
+			retour += "<button type=\"button\" class=\"btn btn-info btn-sm\" data-bs-toggle=\"modal\" data-bs-target=\"#modal"+ allBoard->get(i)->Name + "\">Open Modal</button>\n";
 			retour+= "</div>\n</div>\n";
 			
 			
@@ -167,22 +183,22 @@ String processor(const String& var) {
 	{
 		
 
-		for (byte i = 0; i < 3; i = i + 1) {
+		for (byte i = 0; i < allBoard->size(); i = i + 1) {
 			
-			retour += "<div class=\"modal fade\" id=\"modal" + allBoard[i]->Name + "\" tabindex=\"-1\" aria-labelledby=\"exampleModalLabel\" aria-hidden=\"true\">\n";
+			retour += "<div class=\"modal fade\" id=\"modal" + allBoard->get(i)->Name + "\" tabindex=\"-1\" aria-labelledby=\"exampleModalLabel\" aria-hidden=\"true\">\n";
 			retour += "<div class=\"modal-dialog\">\n";
 
 				
 			retour += "<div class=\"modal-content\">\n";
 			retour += "<div class=\"modal-header\">\n";
-			retour += "<h4 class=\"modal-title\">"+ allBoard[i]->Name + " </h4>\n";
+			retour += "<h4 class=\"modal-title\">"+ allBoard->get(i)->Name + " </h4>\n";
 			retour += "<button type=\"button\" class=\"btn-close\" data-bs-dismiss=\"modal\" aria-label=\"Close\"></button>\n"; //&times;
 			
 				retour+= "</div>\n";
 				retour+= "<div class=\"modal-body\">\n";
-				retour+= "<p>Address: " + String(allBoard[i]->localAddress) + "</p>\n";
-				retour+= "<pre class=\"message\">" + String(allBoard[i]->LastMessage.Content) +"</pre>";
-				retour+= "<p>Derniere update : <span class=\"lastUpdate\">" + String(allBoard[i]->lastmessage) +"</span> sec</p>";
+				retour+= "<p>Address: " + String(allBoard->get(i)->localAddress) + "</p>\n";
+				retour+= "<pre class=\"message\">" + String(allBoard->get(i)->LastMessage.Content) +"</pre>";
+				retour+= "<p>Derniere update : <span class=\"lastUpdate\">" + String(allBoard->get(i)->lastmessage) +"</span> sec</p>";
 				retour+= "</div>";
 				retour+= "<div clas =\"modal-footer\">\n";
 				retour+= "<button type=\"button\" class=\"btn btn-default\" data-bs-dismiss = \"modal\">Close</button>\n";
@@ -400,6 +416,17 @@ void TraitementCommande(String c){
 	
 		
 }
+board* searchBoardById(int id) {
+	for (size_t i = 0; i < allBoard->size(); i++)
+	{
+		if (id == allBoard->get(i)->localAddress)
+		{
+			return allBoard->get(i);
+		}
+		
+	}
+	return allBoard->get(0);
+}
 
 void RouteHttp() {
 	serverHTTP.onNotFound([](AsyncWebServerRequest* request) {
@@ -408,14 +435,7 @@ void RouteHttp() {
 	
 	serverHTTP.on("/update", HTTP_GET, [](AsyncWebServerRequest* request) {
 		Heltec.display->println(String(request->url()));
-		if (request->hasParam("output") && request->hasParam("state")) {
-			Heltec.display->print("output: " + String(request->getParam("output")->value()));
-			Heltec.display->println("  state: " + String(request->getParam("state")->value()));
-			Serial.println(request->getParam("state")->value().toInt());
-			digitalWrite(25, request->getParam("state")->value().toInt());
-			request->send(200, "text/plain", "OK");
-		}
-		else if (request->hasParam("b") && request->hasParam("c")) {
+		if (request->hasParam("b") && request->hasParam("c")) {
 			
 			if (request->getParam("b")->value().toInt() == localAddress)
 			{
@@ -424,6 +444,8 @@ void RouteHttp() {
 			} else
 			{
 				sendMessage( request->getParam("b")->value().toInt() ,request->getParam("c")->value());
+				Serial.println(searchBoardById(request->getParam("b")->value().toInt())->Name);
+				searchBoardById(request->getParam("b")->value().toInt())->waitforResponse = true;
 				LoRa.receive();
 			}
 			
@@ -441,7 +463,7 @@ void RouteHttp() {
 		String retour = "{ \"msSystem\" :" + String(millis()) + "," +
 			//"\"modeTurbine\":\"" + String(EmodeTurbinetoString(modeTurbine)) + "\"," + 
 			"\"modeTurbine\": {\"name\":\" " + String(EmodeTurbinetoString(modeTurbine)) + "\", \"id\":"+ modeTurbine + "}," + 
-		"\"boards\" : [" + allBoard[0]->toJson() + "," + allBoard[1]->toJson() + "," + allBoard[2]->toJson() + "]}";
+		"\"boards\" : [" + allBoard->get(0)->toJson() + "," + allBoard->get(1)->toJson() + "," + allBoard->get(2)->toJson() + "]}";
 		//Serial.println("maj" + String(retour));
 		request->send(200, "application/json", retour);
 		});
@@ -654,10 +676,16 @@ void displayData(void) {
 				
 		break;
 	case 1:
-		Heltec.display->drawLogBuffer(1, 1);
+		Heltec.display->drawLogBuffer(0, 0);
+
+
+
 		break;
 	case 2:
-		Heltec.display->drawString(0,10,String(EmodeTurbinetoString( modeTurbine)));
+		Heltec.display->drawString(0,0,"Mode Vanne: ");
+		Heltec.display->drawString(0,25,String(EmodeTurbinetoString( modeTurbine)));
+		
+		
 		break;
 	case 3:
 	
@@ -674,6 +702,25 @@ void displayData(void) {
 		}
 		
 		
+		break;
+	case 4:
+		Heltec.display->drawString(0,0,"Nb: " + String(allBoard->size()-1));
+		Heltec.display->drawString(80,0,"C ");
+		Heltec.display->drawString(100,0,"WR");
+		for (size_t i = 1; i < allBoard->size(); i++)
+		{
+			Heltec.display->drawString(50,(i-1)*12+15,(String)allBoard->get(i)->localAddress);
+			Heltec.display->drawString(0,(i-1)*12+15,(String)allBoard->get(i)->Name);
+			Heltec.display->drawString(80,(i-1)*12+15,(String)allBoard->get(i)->isConnected());
+			Heltec.display->drawString(100,(i-1)*12+15,(String)allBoard->get(i)->waitforResponse);
+		}
+		
+		break;
+	case 5:
+		Heltec.display->drawString(0,0,"Niveau Etang " + String(NiveauEtang));
+		Heltec.display->drawString(0,20,"Niveau Vanne " + String(OuvertureVanne));
+
+
 		break;
 	default:
 		break;
@@ -715,6 +762,10 @@ void AffichagePixel(void){
 	}
 	strip.show();
 }
+
+
+
+
 void deserializeResponse(byte board, String Response){
 	
 	StaticJsonDocument<200> doc;
@@ -734,7 +785,7 @@ void deserializeResponse(byte board, String Response){
   switch (board)
   {
 	case ETANG:
-		NiveauEtang=doc["Niveau"];
+		NiveauEtang = doc["Niveau"];
 		pidNiveauEtang = -1 * NiveauEtang;
 		break;
 	case TURBINE:
@@ -765,6 +816,7 @@ void deserializeResponse(byte board, String Response){
   
   
 }
+
 void onReceive(int packetSize)
 {
 	if (packetSize == 0) return;          // if there's no packet, return
@@ -792,7 +844,7 @@ void onReceive(int packetSize)
 	// if the recipient isn't this device or broadcast,
 	if (receivedMessage.recipient != localAddress && receivedMessage.recipient != 0xFF)
 	{
-		
+		Serial.println("message pas pour moi");
 		return;                             // skip rest of function
 	}
 	
@@ -804,16 +856,21 @@ void onReceive(int packetSize)
 		
 		break;
 	case ETANG:
-		allBoard[1]->lastmessage = millis();
-		allBoard[1]->LastMessage = receivedMessage;
-		allBoard[1]->newMessage = true;
-
+		allBoard->get(2)->lastmessage = millis();
+		allBoard->get(2)->LastMessage = receivedMessage;
+		allBoard->get(2)->newMessage = true;
+		if (allBoard->get(2)->waitforResponse )//&& allBoard->get(1)->LastMessage.Content == "ok"
+		{
+			allBoard->get(2)->waitforResponse = false;
+			ws.textAll(allBoard->get(2)->localAddress +  ",ok");
+		}
+		
 		
 		break;
 	case TURBINE:
-		allBoard[2]->lastmessage = millis();
-		allBoard[2]->LastMessage = receivedMessage;
-		allBoard[2]->newMessage = true;
+		allBoard->get(1)->lastmessage = millis();
+		allBoard->get(1)->LastMessage = receivedMessage;
+		allBoard->get(1)->newMessage = true;
 
 		break;
 	default:
@@ -918,6 +975,12 @@ void gestionPower(void){
    Heltec.VextON();
 }
 void setup() {
+
+	allBoard->add(&localboard);
+	allBoard->add(&TurbineBoard);
+	allBoard->add(&EtangBoard);
+	
+	
 	Heltec.begin(true, true, true, true, BAND);
 	//InitSD();
 	initWifi();
@@ -937,7 +1000,7 @@ void setup() {
 	pinMode(PRGButton, INPUT_PULLUP);
 
 	
-	localboard.connected = true;
+
 	
 
 	LoRa.onReceive(onReceive);
@@ -969,7 +1032,10 @@ void setup() {
 	adcAttachPin(13);
 	analogSetClockDiv(255); // 1338mS
 	
-	
+	// Heltec.display->clear();
+	// Heltec.display->drawString(20,20,String(allBoard->size()));
+	// Heltec.display->display();
+	// delay(5000);
 }
 
 // the loop function runs over and over again until power down or reset
@@ -977,15 +1043,7 @@ void loop() {
    
    
    AffichagePixel();
-	//    if (EtangBoard.lastmessage != 0)
-	//    {
-		
-		
-		
-	//    } else
-	//    {
-	// 	   myPID.stop();
-	//    }
+
    myPID.run();
 
    
@@ -1005,7 +1063,7 @@ void loop() {
 	if ((digitalRead(PRGButton) == LOW) && !previousEtatbutton)
 	{
 		previousEtatbutton = true;
-		if (displayMode < 3 )
+		if (displayMode < 5 )
 		{
 			displayMode++;
 		}
@@ -1020,37 +1078,41 @@ void loop() {
 	}
 	displayData();
 
-	for (size_t i = 1; i < 3; i++)
+	for (size_t i = 1; i < allBoard->size(); i++)
 	{
-		if (allBoard[i]->newMessage)
+		
+		if (allBoard->get(i)->newMessage)
 		{
-			allBoard[i]->newMessage = false;
-			deserializeResponse(allBoard[i]->localAddress, allBoard[i]->LastMessage.Content);
+			allBoard->get(i)->newMessage = false;
+			deserializeResponse(allBoard->get(i)->localAddress, allBoard->get(i)->LastMessage.Content);
 		}
 
-
-		
-		// if ((millis() - allBoard[i]->lastDemandeStatut > 10000) &&  (millis() - allBoard[i]->lastmessage > 10000))
-		// {
-		// 	Serial.println("Demande Statut: 0x" + (String)allBoard[i]->localAddress );
-		// 	sendMessage(allBoard[i]->localAddress, "DemandeStatut");
-		// 	LoRa.receive();
-		// 	allBoard[i]->lastDemandeStatut = millis();
-		// }
+		//  allBoard->get(i)->demandeStatut();
+		//  LoRa.receive();
 
 	}
+	
 	if (millis()- lastDemandeStatut > 30000)
 	{
+		Serial.println("lastlorachecked " + String(lastLoraChecked));
 		lastDemandeStatut = millis();
-		if (lastLoraChecked > 12 || lastLoraChecked == 0)
+		// if (lastLoraChecked > 12 || lastLoraChecked == 0)
+		// {
+		// 	lastLoraChecked = 11;
+		// } 
+
+		if (lastLoraChecked > allBoard->size()-1 || lastLoraChecked == 0)
 		{
-			lastLoraChecked = 11;
+			lastLoraChecked = 1;
 		} 
 			
-			Serial.println("Demande Statut: 0x" + (String)lastLoraChecked );
-			sendMessage(lastLoraChecked, "DemandeStatut");
-			LoRa.receive();
-			lastLoraChecked++;
+		Serial.println("Demande Statut: 0x" + (String)allBoard->get(lastLoraChecked)->localAddress );
+		allBoard->get(lastLoraChecked)->sendMessage(allBoard->get(lastLoraChecked)->localAddress, "DemandeStatut");
+
+		//sendMessage(lastLoraChecked, "DemandeStatut");
+		
+		LoRa.receive();
+		lastLoraChecked++;
 		
 
 		
@@ -1071,32 +1133,7 @@ void loop() {
 	//printLocalTime();
 	//----------------------------------------Serveur HTTP
 	
-	/*WiFiClient client = serverHTTP.available();
-	
-	if (client) {
-		if (client.connected())
-		{
-			String request = client.readStringUntil('\r');
-			Serial.println(request);
-			if (request.startsWith("GET / HTTP/1.1"))
-			{
-				arHtml(client, "text/html");
-				envoiFichier(client, "/EtangTurbine.html");
-			}
-			else if (request.startsWith("GET /datalog.txt HTTP/1.1"))
-			{
-				arHtml(client, "text");
-				envoiFichier(client, "/data/datalog.txt");
-			}
-			else
-			{
-				client.println("er");
-			}
 
-
-			client.stop();
-		}
-	}*/
 	ws.cleanupClients();
 	ArduinoOTA.handle();
 	delay(20);

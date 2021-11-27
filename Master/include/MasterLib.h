@@ -8,6 +8,7 @@
 #endif
 
 #include "TurbineEtangLib.h"
+#include "Heltec.h"
 
 typedef enum {
 	Manuel,
@@ -36,9 +37,25 @@ public:
 	}
 	String Name;
 	byte localAddress;
-	bool connected = false;
+
+
+	/**
+	 * @brief indique le millis du dernier message recu
+	 * 
+	 */
 	unsigned long lastmessage = 0;
+
+	/**
+	 * @brief stock le dernier message recu
+	 * 
+	 */
 	Message LastMessage;
+
+	/**
+	 * @brief retourne les infos sous forme de json
+	 * 
+	 * @return String 
+	 */
 	String toJson() {
 		if (this->localAddress == MASTER)
 		{
@@ -51,15 +68,56 @@ public:
 			"\"lastUpdate\" : " + lastmessage + "" + 
 			"}";
 	};
+
+	/**
+	 * @brief indique si un nouveau message est recu
+	 * 
+	 */
 	bool newMessage = false;
 
+	bool waitforResponse = false;
 	unsigned long lastDemandeStatut = 0;
+	
 
 	Command Commands[10];
 	void AddCommand(String Name, int id, String Type, String Action) {
 		Commands[id].Action = Action;
 		Commands[id].Name = Name;
 		Commands[id].Type = Type;
+	}
+
+	bool isConnected(){
+		if ((millis() - lastmessage < 600000) && lastmessage !=0 )
+		{
+			return true;
+		} else
+		{
+			return false;
+		}
+		
+		
+	}
+	void sendMessage(byte destination, String outgoing)
+	{
+		LoRa.beginPacket();                   // start packet
+		LoRa.write(destination);              // add destination address
+		LoRa.write(localAddress);             // add sender address
+		LoRa.write(0);                 // add message ID
+		LoRa.write(outgoing.length());        // add payload length
+		LoRa.print(outgoing);                 // add payload
+		LoRa.endPacket();                     // finish packet and send it
+		//msgCount++;                           // increment message ID
+	}
+
+	void demandeStatut (){
+		if (millis()- lastDemandeStatut > 30000)
+		{
+			Serial.println("Classe demandestatut 0x" + String(localAddress,HEX));
+			lastDemandeStatut = millis();
+			sendMessage(localAddress, "DemandeStatut");
+			LoRa.receive();
+			waitforResponse = true;
+		}
 	}
 
 private:

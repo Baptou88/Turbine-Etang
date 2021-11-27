@@ -57,7 +57,7 @@ int NiveauEtang = 0;
 unsigned long previousMesure = 0;
 unsigned long previousSend = 0;
 
-byte localAddress = 0x0C;
+byte localAddress = Etang;
 byte msgCount = 0;
 int NiveauMax = 0;
 int NiveauMin = 1000;
@@ -263,6 +263,7 @@ void displayData(void)
 	
 	case 3:
 		drawBattery(voltage, voltage < LIGHT_SLEEP_VOLTAGE);
+		Heltec.display->drawString(0,0,"0x"+ String(localAddress,HEX));
 		break;
 	default:
 		Heltec.display->drawString(0, 10, "erreur indice affichage" );
@@ -281,7 +282,7 @@ void EnvoyerMsgStatut(void){
 	doc["pressure"] = pressure;
 	
 	serializeJson(doc,json);
-	//Serial.println("voila ce que jenvoi: "+ String(json));
+	Serial.println("voila ce que jenvoi: "+ String(json));
 	
 	sendMessage(0x0A, json);
 	LoRa.receive();
