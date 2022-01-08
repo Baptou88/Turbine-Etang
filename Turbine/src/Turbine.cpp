@@ -30,8 +30,8 @@ byte localAddress = 0x0B;
 byte msgCount = 0;
 
 //encodeur
-#define pinEncodA  36
-#define pinEncodB  37
+#define pinEncodA  37
+#define pinEncodB  36
 #define pinTaqui 32
 
 
@@ -39,7 +39,7 @@ byte msgCount = 0;
 Adafruit_INA260 ina260 = Adafruit_INA260();
 double currentValue = 0;
 unsigned long previousMesureIntensite = 0;
-int maxIntensite = 4000; //mA
+int maxIntensite = 8000; //mA
 
 String StatutVanne = "Arret";
 
@@ -171,7 +171,11 @@ int degToInc(int degres) {
 }
 //conversion degrés vanne en increment
 int degvanneToInc(int degVanne){
-	return degToInc(degVanne) / tourMoteurVanne;
+	
+	float incMoteur = degToInc(degVanne);
+	
+	
+	return incMoteur / tourMoteurVanne;
 }
 //Asservissement Moteur
 void asservissementMoteur() {
@@ -187,6 +191,7 @@ void asservissementMoteur() {
 	}
 	//consigneMoteur -= countEncodA;
 	countEncodA = 0;
+	countEncodB = 0;
 }
 
 //pourcentage ouverture vanne
@@ -287,6 +292,22 @@ void TraitementCommande(String c){
 			sensMoteur = -1;
 		}
 		/*consigneMoteur = abs(consigneMoteur);*/
+	}
+	if (c.startsWith("DEGV"))
+	{
+		c.remove(0, 4);
+		Serial.println(c.toInt());
+		consigneMoteur = degvanneToInc(c.toInt());
+		Serial.println(consigneMoteur);
+		if (consigneMoteur > 0)
+		{
+			sensMoteur = 1;
+		}
+		else
+		{
+			sensMoteur = -1;
+		}
+		
 	}
 	if (c.startsWith("DEG"))
 	{
@@ -578,7 +599,7 @@ void stopTempo(int numTempo) {
 	Tempo[numTempo] = 0;
 }
 
- void EncodA() {
+ void IRAM_ATTR EncodA() {
 	 if (millis()> dernieredetectionEncodA + 1)
 	 {
 		 dernieredetectionEncodA = millis();
@@ -599,7 +620,7 @@ void stopTempo(int numTempo) {
 }
 
 		
-void EncodB() {
+void IRAM_ATTR EncodB() {
 	 countEncodB += 1;
 }
 
@@ -659,6 +680,8 @@ void EncodB() {
 			Heltec.display->drawString(0,28,"MaxI: ");
 			Heltec.display->drawString(55,28,String(maxIntensite));
 			Heltec.display->drawString(100,28,"mA");
+			Heltec.display->drawString(0,41,"Rap Reduc: ");
+			Heltec.display->drawString(60,41,String(tourMoteurVanne));
 			
 			break;
 
@@ -710,7 +733,7 @@ void onReceive(int packetSize)
 	receivedMessage.sender = LoRa.read();            // sender address
 	byte incomingMsgId = LoRa.read();     // incoming msg ID
 	byte incomingLength = LoRa.read();    // incoming msg length
-
+	
 	receivedMessage.Content = "";                 // payload of packet
 
 	while (LoRa.available())             // can't use readString() in callback
@@ -728,6 +751,7 @@ void onReceive(int packetSize)
 	if (receivedMessage.recipient != localAddress && receivedMessage.recipient != 0xFF)
 	{
 		Serial.println("This message is not for me.");
+		receivedMessage.Content = "";
 		return;                             // skip rest of function
 	}
 	
@@ -742,7 +766,7 @@ void onReceive(int packetSize)
 	Serial.println();
 	Heltec.display->println("0x" + String(receivedMessage.sender,HEX) + " to 0x" + String(receivedMessage.recipient, HEX) + " " + String(receivedMessage.Content));
 
-	TraitementCommande(receivedMessage.Content);
+	
 
 	
 	
@@ -758,24 +782,32 @@ void setup() {
 	Wire.begin(SDA_OLED, SCL_OLED); 
 	Heltec.begin(true, true, true, true, BAND);
 	Heltec.display->setLogBuffer(10,30);
-	pinMode(pinFCVanneFermee, INPUT );
-	pinMode(pinFCVanneOuverte, INPUT);
 
+	pinMode(pinFCVanneFermee, INPUT_PULLUP );
+	pinMode(pinFCVanneOuverte, INPUT_PULLUP);
+
+
+//encodeurs
 	pinMode(pinFermetureVanne, OUTPUT);
 	pinMode(pinOuvertureVanne, OUTPUT);
 
-	pinMode(pinEncodA, INPUT);
+	pinMode(pinEncodA, INPUT_PULLUP);
 	attachInterrupt(pinEncodA, EncodA,RISING);
+
 #ifdef pinEncodB
-	pinMode(pinEncodB, INPUT);
+	pinMode(pinEncodB, INPUT_PULLUP);
 	attachInterrupt(pinEncodB, EncodB,CHANGE);
 #endif // pinEncodB
 
 #ifdef pinTaqui
-	pinMode(pinTaqui, INPUT);
+	pinMode(pinTaqui, INPUT_PULLUP);
 	attachInterrupt(pinTaqui, Taqui,RISING);
 #endif
 
+// pinMode(2,OUTPUT);
+// ledcSetup(0,5000,8);
+// ledcAttachPin(2, 0);
+// ledcWrite(0,255);
 
 	if (preferences.begin("Turbine",false))
 	{
@@ -834,6 +866,11 @@ void loop() {
 	}
 	
 	
+	if (receivedMessage.Content != "")
+	{
+		TraitementCommande(receivedMessage.Content);
+		receivedMessage.Content = "";
+	}
 	
 	
 	// acquisition des entrées et stockage dans variables internes
