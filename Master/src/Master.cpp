@@ -4,7 +4,7 @@
  Author:	Baptou
 */
 
-// the setup function runs once when you press reset or power the board
+
 
 //#include <AsyncTCP.h>
 
@@ -25,6 +25,7 @@
 #include <Adafruit_NeoPixel.h>
 #include <AutoPID.h>
 #include <LinkedList.h>
+#include <arduino-timer.h>
 
 #include "MasterLib.h"
 #include "websocket.h"
@@ -124,7 +125,7 @@ unsigned long lastCorrectionVanne = 0;
 
 //sauvegarde des données
 unsigned long lastSaveData = 0;
-
+auto timerSaveData = timer_create_default();
 
 Message receivedMessage;
 
@@ -286,17 +287,19 @@ void InitBoard(void) {
 
 	TurbineBoard.AddCommand("OuvertureTotale", 0, "button", "OT");
 	TurbineBoard.AddCommand("FermetureTotale", 1, "button", "FT");
-	TurbineBoard.AddCommand("+1T  Moteur",2,"button","Deg360");
-	TurbineBoard.AddCommand("-1T  Moteur",3,"button","Deg-360");
+	TurbineBoard.AddCommand("+1T  Moteur",2,"button","DEG360");
+	TurbineBoard.AddCommand("-1T  Moteur",3,"button","DEG-360");
 	TurbineBoard.AddCommand("SetMin",4,"button","SMIN");
 	TurbineBoard.AddCommand("SetMax",5,"button","SMAX");
+	TurbineBoard.AddCommand("+1T  Vanne",6,"button","DEGV360");
+	TurbineBoard.AddCommand("-1T  Vanne",7,"button","DEGV-360");
 
 	
 	localboard.AddCommand("Save data", 0,"button","SDATA");
 	localboard.AddCommand("ClearData", 1 , "button", "CDATA");
 	localboard.AddCommand("Save data", 2,"button","SDATA2");
 }
-bool saveData(void){
+bool saveData(void ){
 	DynamicJsonDocument doc(100000);
 	JsonObject obj;
 	obj = getJsonFromFile(&doc,"/data.json");
@@ -425,7 +428,8 @@ board* searchBoardById(int id) {
 		}
 		
 	}
-	return allBoard->get(0);
+	//return allBoard->get(0);
+	return 0;
 }
 
 void RouteHttp() {
@@ -444,7 +448,6 @@ void RouteHttp() {
 			} else
 			{
 				sendMessage( request->getParam("b")->value().toInt() ,request->getParam("c")->value());
-				Serial.println(searchBoardById(request->getParam("b")->value().toInt())->Name);
 				searchBoardById(request->getParam("b")->value().toInt())->waitforResponse = true;
 				LoRa.receive();
 			}
@@ -849,34 +852,45 @@ void onReceive(int packetSize)
 	}
 	
 
- 
-	switch (receivedMessage.sender)
+	board *test = searchBoardById(receivedMessage.sender);
+	
+	test->lastmessage = millis();
+	test->LastMessage = receivedMessage;
+	test->newMessage = true;
+	if (test->waitforResponse )//&& allBoard->get(1)->LastMessage.Content == "ok"
 	{
-	case MASTER:
-		
-		break;
-	case ETANG:
-		allBoard->get(2)->lastmessage = millis();
-		allBoard->get(2)->LastMessage = receivedMessage;
-		allBoard->get(2)->newMessage = true;
-		if (allBoard->get(2)->waitforResponse )//&& allBoard->get(1)->LastMessage.Content == "ok"
-		{
-			allBoard->get(2)->waitforResponse = false;
-			ws.textAll(allBoard->get(2)->localAddress +  ",ok");
-		}
-		
-		
-		break;
-	case TURBINE:
-		allBoard->get(1)->lastmessage = millis();
-		allBoard->get(1)->LastMessage = receivedMessage;
-		allBoard->get(1)->newMessage = true;
-
-		break;
-	default:
-		
-		break;
+		test->waitforResponse = false;
+		ws.textAll(test->localAddress +  ",ok");
 	}
+	
+
+	// switch (receivedMessage.sender)
+	// {
+	// case MASTER:
+		
+	// 	break;
+	// case ETANG:
+	// 	allBoard->get(2)->lastmessage = millis();
+	// 	allBoard->get(2)->LastMessage = receivedMessage;
+	// 	allBoard->get(2)->newMessage = true;
+	// 	if (allBoard->get(2)->waitforResponse )//&& allBoard->get(1)->LastMessage.Content == "ok"
+	// 	{
+	// 		allBoard->get(2)->waitforResponse = false;
+	// 		ws.textAll(allBoard->get(2)->localAddress +  ",ok");
+	// 	}
+		
+		
+	// 	break;
+	// case TURBINE:
+	// 	allBoard->get(1)->lastmessage = millis();
+	// 	allBoard->get(1)->LastMessage = receivedMessage;
+	// 	allBoard->get(1)->newMessage = true;
+
+	// 	break;
+	// default:
+		
+	// 	break;
+	// }
 	//// if message is for this device, or broadcast, print details:
 	// Serial.println("Received from: 0x" + String(receivedMessage.sender, HEX));
 	// Serial.println("Sent to: 0x" + String(receivedMessage.recipient, HEX));
@@ -974,6 +988,8 @@ void gestionPower(void){
    }
    Heltec.VextON();
 }
+
+// the setup function runs once when you press reset or power the board
 void setup() {
 
 	allBoard->add(&localboard);
@@ -1004,6 +1020,7 @@ void setup() {
 	
 
 	LoRa.onReceive(onReceive);
+	
 	LoRa.receive();
 
 	Serial.println("Heltec.LoRa init succeeded.");
@@ -1036,29 +1053,31 @@ void setup() {
 	// Heltec.display->drawString(20,20,String(allBoard->size()));
 	// Heltec.display->display();
 	// delay(5000);
+	
 }
 
 // the loop function runs over and over again until power down or reset
 void loop() {
    
    
-   AffichagePixel();
+	AffichagePixel();
 
-   myPID.run();
+	myPID.run();
+
 
    
    
-   gestionPower();
+	gestionPower();
    
-   //printLocalTime();
-   if (millis()> lastCorrectionVanne + 5000)
-   {
-	    //Serial.println("mesure: "+ String(NiveauEtang ) );
-	    lastCorrectionVanne = millis();
-		//Serial.println("Correction Vanne: "+ String(correctionVanne) );
+	//printLocalTime();
+	if (millis()> lastCorrectionVanne + 5000)
+	{
+			//Serial.println("mesure: "+ String(NiveauEtang ) );
+			lastCorrectionVanne = millis();
+			//Serial.println("Correction Vanne: "+ String(correctionVanne) );
 
-		notifyClients();
-   }
+			notifyClients();
+	}
    
 	if ((digitalRead(PRGButton) == LOW) && !previousEtatbutton)
 	{
@@ -1108,8 +1127,8 @@ void loop() {
 			
 		Serial.println("Demande Statut: 0x" + (String)allBoard->get(lastLoraChecked)->localAddress );
 		allBoard->get(lastLoraChecked)->sendMessage(allBoard->get(lastLoraChecked)->localAddress, "DemandeStatut");
-
-		//sendMessage(lastLoraChecked, "DemandeStatut");
+		allBoard->get(lastLoraChecked)->waitforResponse = true;
+		sendMessage(lastLoraChecked, "DemandeStatut");
 		
 		LoRa.receive();
 		lastLoraChecked++;

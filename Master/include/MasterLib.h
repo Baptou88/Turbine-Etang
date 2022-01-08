@@ -74,7 +74,7 @@ public:
 	 * 
 	 */
 	bool newMessage = false;
-
+	int attempt = 0;
 	bool waitforResponse = false;
 	unsigned long lastDemandeStatut = 0;
 	
