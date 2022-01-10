@@ -45,6 +45,8 @@ String StatutVanne = "Arret";
 
 Preferences preferences;
 
+unsigned long dernierAppuibutton = 0;
+
 const int pinOuvertureVanne = 12;
 const int pinFermetureVanne = 13;
 const byte pinFCVanneOuverte = 39;
@@ -77,7 +79,13 @@ long posMoteur;
 bool previousEtatbutton = false;
 //Automate
 
-
+enum EtapesEcran{
+	Initi,
+	Reveil,
+	Affiche,
+	Suivant,
+	Sleep,
+};
 enum Etapes
 {
 	Init,
@@ -151,6 +159,7 @@ String EtapeToString(Etapes E) {
 		break;
 	}
 }
+
 Etapes EtapeActuel;
 Etapes SousEtapeActuel;
 
@@ -764,7 +773,8 @@ void onReceive(int packetSize)
 	Serial.println("RSSI: " + String(LoRa.packetRssi()));
 	//Serial.println("Snr: " + String(LoRa.packetSnr()));
 	Serial.println();
-	Heltec.display->println("0x" + String(receivedMessage.sender,HEX) + " to 0x" + String(receivedMessage.recipient, HEX) + " " + String(receivedMessage.Content));
+	// Heltec.display->println("0x" + String(receivedMessage.sender,HEX) + " to 0x" + String(receivedMessage.recipient, HEX) + " " + String(receivedMessage.Content));
+	Heltec.display->println(String(receivedMessage.Content));
 
 	
 
@@ -775,7 +785,19 @@ void Taqui(void){
  countTaqui++;
 }
 
+String wakeup_reason_toString(esp_sleep_wakeup_cause_t wakeup_reason){
+  
 
+  switch(wakeup_reason)
+  {
+    case ESP_SLEEP_WAKEUP_EXT0 : return "Wakeup caused by external signal using RTC_IO" ; break;
+    case ESP_SLEEP_WAKEUP_EXT1 : return "Wakeup caused by external signal using RTC_CNTL" ; break;
+    case ESP_SLEEP_WAKEUP_TIMER : return "Wakeup caused by timer" ; break;
+    case ESP_SLEEP_WAKEUP_TOUCHPAD : return "Wakeup caused by touchpad" ; break;
+    case ESP_SLEEP_WAKEUP_ULP : return "Wakeup caused by ULP program" ; break;
+    default : return "Wakeup was not caused by deep sleep: " + wakeup_reason ; break;
+  }
+}
 // the setup function runs once when you press reset or power the board
 void setup() {
 
@@ -783,6 +805,7 @@ void setup() {
 	Heltec.begin(true, true, true, true, BAND);
 	Heltec.display->setLogBuffer(10,30);
 
+	Heltec.display->drawString(0,12,wakeup_reason_toString(esp_sleep_get_wakeup_cause()));
 	pinMode(pinFCVanneFermee, INPUT_PULLUP );
 	pinMode(pinFCVanneOuverte, INPUT_PULLUP);
 
@@ -817,12 +840,12 @@ void setup() {
 	
 	//TODO: essayer de changer  wire1 par wire
 	if (!ina260.begin(0x40, &Wire)) {
-		Heltec.display->drawString(0,12,"Couldn't find INA260 chip");
+		Heltec.display->drawString(0,24,"Couldn't find INA260 chip");
 		Serial.println("Couldn't find INA260 chip");
 		Heltec.display->display();
 		while (1);
 	}
-	Heltec.display->drawString(0,12,"INA260 ok !");
+	Heltec.display->drawString(0,24,"INA260 ok !");
 	Heltec.display->display();
 	Serial.println("Found INA260 chip");
 
@@ -849,6 +872,12 @@ void loop() {
 	{
 		if ((digitalRead(PRGButton) == LOW) && !previousEtatbutton )
 		{
+			dernierAppuibutton = millis();
+			
+			
+			
+			
+
 			previousEtatbutton = true;
 			if (displayMode < 3 )
 			{
@@ -865,7 +894,13 @@ void loop() {
 		}	
 	}
 	
-	
+	if (millis()> dernierAppuibutton +30000)
+			{
+				Heltec.display->sleep();
+			} else
+			{
+				Heltec.display->wakeup();
+			}
 	if (receivedMessage.Content != "")
 	{
 		TraitementCommande(receivedMessage.Content);

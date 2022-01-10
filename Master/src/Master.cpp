@@ -39,12 +39,12 @@
 
 #define __DEBUG
 
-#ifdef __DEBUG
-	int intervalleEnvoi = 15000; // 15sec
-#endif
-#ifndef __DEBUG
-	int intervalleEnvoi = 60000; // 1 min
-#endif
+//#ifdef __DEBUG
+	RTC_DATA_ATTR  int intervalleEnvoi = 15000; // 15sec
+//#endif
+//#ifndef __DEBUG
+	//int intervalleEnvoi = 60000; // 1 min
+//#endif
 
 
 bool previousEtatbutton = false;
@@ -96,7 +96,7 @@ byte localAddress = 0x0A;
 long msgCount = 0;
 byte displayMode = 0;
 
-double NiveauEtang = 0.5;
+double NiveauEtang = 0;
 double correctionVanne =0;
 double setpoint = -.8;
 double pidNiveauEtang = -1 * NiveauEtang;
@@ -155,18 +155,23 @@ String processor(const String& var) {
 			retour += "<div class=\"spinner-border\" role=\"status\" style=\"display:none\">\n<span class=\"visually-hidden\">Loading...</span>\n</div>";
 			retour += "<div class = \"card-body\">\n";
 			//retour += "<h5>LastMessage: </h5><div class=\"message\">" + allBoard->get(i)->LastMessage.Content + "</div>\n";
-			for (byte j = 0; j < 10; j++) 
+			board *temp = allBoard->get(i);
+			for (byte j = 0; j < temp->Commands->size(); j++) 
 			{
-				if (allBoard->get(i)->Commands[j].Name != "")
+				if (allBoard->get(i)->Commands->get(j).Name != "")
 				{
-					if (allBoard->get(i)->Commands[j].Type == "button")
+					if (temp->Commands->get(j).Type == "button")
 					{
-						retour += "<input type=\""+ allBoard->get(i)->Commands[j].Type + "\" name=\""+ allBoard->get(i)->Commands[j].Name + "\" value=\"" + allBoard->get(i)->Commands[j].Name + "\" onclick=\"update(this,"+ "'"+allBoard->get(i)->Commands[j].Action +"')\">\n";
+						retour += "<input type=\""+ temp->Commands->get(j).Type + "\" name=\""+ temp->Commands->get(j).Name + "\" value=\"" + temp->Commands->get(j).Name + "\" onclick=\"update(this,"+ "'"+temp->Commands->get(j).Action +"')\">\n";
 
-					} else if (allBoard->get(i)->Commands[j].Name == "textbox")
+					} else if (temp->Commands->get(j).Type == "textbox" ||temp->Commands->get(j).Type == "number")
 					{
-						retour += "<input type=\""+ allBoard->get(i)->Commands[j].Type + "\" name=\""+ allBoard->get(i)->Commands[j].Name + "\" value=\"" + allBoard->get(i)->Commands[j].Name + "\" onclick=\"update(this,"+ "'"+allBoard->get(i)->Commands[j].Action +"')\">\n";
+						retour += "<input type=\""+ temp->Commands->get(j).Type + "\" name=\""+ temp->Commands->get(j).Name + "\" value=\"" + temp->Commands->get(j).Value + "\" onchange=\"update(this,"+ "'"+temp->Commands->get(j).Action +"'+'=' +this.value)\">\n";
+					} else
+					{
+						retour += "<p>erreur commande name="+ temp->Commands->get(j).Name +"</p>";
 					}
+					
 					//retour += "<input type=\""+ allBoard->get(i)->Commands[j].Type + "\" name=\""+ allBoard->get(i)->Commands[j].Name + "\" value=\"" + allBoard->get(i)->Commands[j].Name + "\" onclick=\"update(this,"+ "'"+allBoard->get(i)->Commands[j].Action +"')\">\n";
 
 					
@@ -278,26 +283,27 @@ bool saveJsonToFile(DynamicJsonDocument *doc, String filename){
 }
 
 void InitBoard(void) {
-	EtangBoard.AddCommand("SaveEEPROM", 0,"button", "SEEPROM");
-	EtangBoard.AddCommand("ClearEEPROM", 1, "button", "ClearEEPROM");
-	EtangBoard.AddCommand("SetMax", 2, "button", "SMAX");
-	EtangBoard.AddCommand("SetMin", 3, "button", "SMIN");
-	EtangBoard.AddCommand("Veille",4,"button","SLEEP");
-	EtangBoard.AddCommand("Veille2",5,"button","SLEEPTP");
+	EtangBoard.AddCommand("SaveEEPROM", "button", "SEEPROM");
+	EtangBoard.AddCommand("ClearEEPROM", "button", "ClearEEPROM");
+	EtangBoard.AddCommand("SetMax", "button", "SMAX");
+	EtangBoard.AddCommand("SetMin", "button", "SMIN");
+	EtangBoard.AddCommand("Veille","button","SLEEP");
+	EtangBoard.AddCommand("Veille2","button","SLEEPTP");
 
-	TurbineBoard.AddCommand("OuvertureTotale", 0, "button", "OT");
-	TurbineBoard.AddCommand("FermetureTotale", 1, "button", "FT");
-	TurbineBoard.AddCommand("+1T  Moteur",2,"button","DEG360");
-	TurbineBoard.AddCommand("-1T  Moteur",3,"button","DEG-360");
-	TurbineBoard.AddCommand("SetMin",4,"button","SMIN");
-	TurbineBoard.AddCommand("SetMax",5,"button","SMAX");
-	TurbineBoard.AddCommand("+1T  Vanne",6,"button","DEGV360");
-	TurbineBoard.AddCommand("-1T  Vanne",7,"button","DEGV-360");
+	TurbineBoard.AddCommand("OuvertureTotale", "button", "OT");
+	TurbineBoard.AddCommand("FermetureTotale", "button", "FT");
+	TurbineBoard.AddCommand("+1T  Moteur","button","DEG360");
+	TurbineBoard.AddCommand("-1T  Moteur","button","DEG-360");
+	TurbineBoard.AddCommand("SetMin","button","SMIN");
+	TurbineBoard.AddCommand("SetMax","button","SMAX");
+	TurbineBoard.AddCommand("+1T  Vanne","button","DEGV360");
+	TurbineBoard.AddCommand("-1T  Vanne","button","DEGV-360");
 
 	
-	localboard.AddCommand("Save data", 0,"button","SDATA");
-	localboard.AddCommand("ClearData", 1 , "button", "CDATA");
-	localboard.AddCommand("Save data", 2,"button","SDATA2");
+	localboard.AddCommand("Save data", "button","SDATA");
+	localboard.AddCommand("ClearData", "button", "CDATA");
+	localboard.AddCommand("Save data","button","SDATA2");
+	localboard.AddCommand("Intervalle msg", "number","ITMSG",String(intervalleEnvoi));
 }
 bool saveData(void ){
 	DynamicJsonDocument doc(100000);
@@ -415,6 +421,13 @@ void TraitementCommande(String c){
 	{
 		/* code */
 	}
+	if (c.startsWith("ITMSG="))
+	{
+		c.replace("ITMSG=","");
+		Serial.println("Modif de l'intervalle d'envoi de msg par " + String(c.toInt()));
+		intervalleEnvoi = c.toInt();
+	}
+	
 	
 	
 		
@@ -721,8 +734,8 @@ void displayData(void) {
 		break;
 	case 5:
 		Heltec.display->drawString(0,0,"Niveau Etang " + String(NiveauEtang));
-		Heltec.display->drawString(0,20,"Niveau Vanne " + String(OuvertureVanne));
-
+		Heltec.display->drawString(0,18,"Niveau Vanne " + String(OuvertureVanne));
+		Heltec.display->drawString(0,36,"intervalMsg "+ String(intervalleEnvoi/1000) + "s");
 
 		break;
 	default:
@@ -1139,6 +1152,15 @@ void loop() {
 	}
 	
 	
+	static uint32_t previousMillis = 0;
+  // if WiFi is down, try reconnecting every CHECK_WIFI_TIME seconds
+  if ((WiFi.status() != WL_CONNECTED) && (millis() - previousMillis >= 30000)) {
+    Serial.print(millis());
+    Serial.println("Reconnecting to WiFi...");
+    WiFi.disconnect();
+    WiFi.reconnect();
+    previousMillis = millis();
+  }
 	
 	
 

@@ -9,6 +9,7 @@
 
 #include "TurbineEtangLib.h"
 #include "Heltec.h"
+#include "LinkedList.h" 
 
 typedef enum {
 	Manuel,
@@ -16,13 +17,17 @@ typedef enum {
 }EmodeTurbine;
 
 String EmodeTurbinetoString(size_t m);
-
+enum commandType{
+	button,
+	textbox
+};
 class Command
 {
 public:
 	String Name;
 	String Type;
 	String Action;
+	String Value;
 
 private:
 
@@ -30,7 +35,9 @@ private:
 class board
 {
 public:
+	LinkedListB::LinkedList<Command> *Commands ;
 	board(String N, byte Address) {
+		Commands = new LinkedListB::LinkedList<Command>();
 		Name = N;
 		localAddress = Address;
 		
@@ -79,11 +86,15 @@ public:
 	unsigned long lastDemandeStatut = 0;
 	
 
-	Command Commands[10];
-	void AddCommand(String Name, int id, String Type, String Action) {
-		Commands[id].Action = Action;
-		Commands[id].Name = Name;
-		Commands[id].Type = Type;
+	
+	void AddCommand(String Name,  String Type, String Action, String Value ="") {
+		Command temp = Command();
+		temp.Action = Action;
+		temp.Name = Name;
+		temp.Type = Type;
+		temp.Value = Value;
+		Commands->add(temp);
+		
 	}
 
 	bool isConnected(){
