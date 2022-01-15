@@ -38,9 +38,10 @@
 #define PRGButton 0
 
 #define __DEBUG
+// #define USEIPFIXE
 
 //#ifdef __DEBUG
-	RTC_DATA_ATTR  int intervalleEnvoi = 15000; // 15sec
+	RTC_DATA_ATTR  int intervalleEnvoi = 30000; // 30sec
 //#endif
 //#ifndef __DEBUG
 	//int intervalleEnvoi = 60000; // 1 min
@@ -134,6 +135,8 @@ Message receivedMessage;
 IPAddress local_IP(192,168,1,148);
 IPAddress gateway(192,168,1,1);
 IPAddress subnet(255,255,255,0);
+IPAddress primaryDNS(8, 8, 8, 8);   //optional
+IPAddress secondaryDNS(8, 8, 4, 4); //optional
 
 
 String processor(const String& var) {
@@ -575,6 +578,8 @@ void WifiEvent(WiFiEvent_t event){
       Serial.println("Obtained IP address: ");
       Serial.println("	local IP: " + (String)WiFi.localIP().toString());
 	  Serial.println("	DNS   IP: " + (String)WiFi.dnsIP().toString());
+	  Serial.println("	MAC     : " + (String)WiFi.macAddress());
+	  
 
 	  timeClient.begin();
 		if(!timeClient.update()) {
@@ -917,22 +922,30 @@ void onReceive(int packetSize)
 	LoRa.receive();
 }
 
+/**
+ * @brief initialisation du wifi
+ * 
+ */
 void  initWifi(void)
 {
 
+	WiFi.mode(WIFI_STA);
+	// Configures static IP address
+
+	#if defined(USEIPFIXE)
+	
+		if (!WiFi.config(local_IP, gateway, subnet,gateway,secondaryDNS)) { //8,8,8,8
+			Serial.println("STA Failed to configure");
+		}
+	
+	#endif // USEIPFIXE
+	
 	
 	
 	if (WiFi.setHostname("esp32Lora22"))
 	{
 		Serial.println("hostname ok");
 	}
-
-	// Configures static IP address
-	if (!WiFi.config(local_IP, gateway, subnet,gateway)) { //8,8,8,8
-		Serial.println("STA Failed to configure");
-	}
-	
-
 	Heltec.display->clear();
 	Serial.print("Connecting to ");
 	Serial.println(SSID);
@@ -942,11 +955,12 @@ void  initWifi(void)
 
 	WiFi.onEvent(WifiEvent);
 
-	// Mode point d'accès
-  	WiFi.softAP("Esp32 Lora");
-	  ArduinoOTA.setHostname("Esp32 Lora");
+	
+	  
+	ArduinoOTA.setHostname("Esp32 Lora");
 	// Mode de connexion
-	WiFi.mode(WIFI_STA);
+	
+
 	WiFi.begin(SSID, PASSWORD);
 	
 	// Start Web Server
@@ -963,6 +977,7 @@ void  initWifi(void)
 		
 	}
 	delay(1000);
+	
 }
 
 void InitSD(void) {
@@ -1124,7 +1139,7 @@ void loop() {
 
 	}
 	
-	if (millis()- lastDemandeStatut > 30000)
+	if (millis()- lastDemandeStatut > intervalleEnvoi)
 	{
 		Serial.println("lastlorachecked " + String(lastLoraChecked));
 		lastDemandeStatut = millis();
