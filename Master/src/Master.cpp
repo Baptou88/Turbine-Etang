@@ -26,6 +26,8 @@
 #include <AutoPID.h>
 #include <LinkedList.h>
 #include <arduino-timer.h>
+#include "digitalInput.h"
+#include "menu.h"
 
 #include "MasterLib.h"
 #include "websocket.h"
@@ -35,7 +37,11 @@
 
 
 #define BAND 868E6
-#define PRGButton 0
+//#define PRGButton 0
+
+digitalInput prgButton(0,INPUT_PULLUP);
+digitalInput encodLeft(36,INPUT_PULLUP);
+digitalInput encodRight(38,INPUT_PULLUP);
 
 #define __DEBUG
 // #define USEIPFIXE
@@ -47,7 +53,7 @@
 	//int intervalleEnvoi = 60000; // 1 min
 //#endif
 
-
+RTC_DATA_ATTR byte defaultConnectWifi = 0;
 bool previousEtatbutton = false;
 SPIClass spi1;
 
@@ -67,8 +73,8 @@ board EtangBoard("Etang", ETANG);
 board TurbineBoard("Turbine", TURBINE);
 
 //board *allBoard[3] = {  &localboard, &EtangBoard , &TurbineBoard};
-
-
+String  modeWifi[] = {"AP", "STA"};
+menu menuModeWifi(2,2);
 //LinkedList<board*> allBoard = new LinkedList<board*>();
 LinkedListB::LinkedList<board*> *allBoard = new  LinkedListB::LinkedList<board*>();
 
@@ -137,6 +143,17 @@ IPAddress gateway(192,168,1,1);
 IPAddress subnet(255,255,255,0);
 IPAddress primaryDNS(8, 8, 8, 8);   //optional
 IPAddress secondaryDNS(8, 8, 4, 4); //optional
+
+enum mode{
+	initSTA,
+	initSoftAP,
+	selectModeWifi,
+	selectStation,
+	normal,
+	testbutton, // TODO remove this
+};
+mode Mode = initSTA; 
+
 
 
 String processor(const String& var) {
@@ -948,9 +965,9 @@ void  initWifi(void)
 	}
 	Heltec.display->clear();
 	Serial.print("Connecting to ");
-	Serial.println(SSID);
+	Serial.println(wifiParams[defaultConnectWifi].SSID);
 	Heltec.display->drawString(0, 00, "Connecting to ");
-	Heltec.display->drawString(00, 10, SSID);
+	Heltec.display->drawString(00, 10, wifiParams[defaultConnectWifi].SSID);
 	Heltec.display->display();
 
 	WiFi.onEvent(WifiEvent);
@@ -961,7 +978,7 @@ void  initWifi(void)
 	// Mode de connexion
 	
 
-	WiFi.begin(SSID, PASSWORD);
+	WiFi.begin(wifiParams[defaultConnectWifi].SSID, wifiParams[defaultConnectWifi].Credential);
 	
 	// Start Web Server
 	serverHTTP.begin();
@@ -1017,6 +1034,178 @@ void gestionPower(void){
    Heltec.VextON();
 }
 
+void handleMode(){
+	switch (Mode)
+	{
+	case initSTA:
+		Heltec.display->clear();
+
+		WiFi.mode(wifi_mode_t::WIFI_MODE_STA);
+		// if (!WiFi.config(IP, gateway, subnet,gateway)){
+		// Serial.println("STA Failed to configure");
+		
+		// }
+		if (WiFi.setHostname("esp32Lora22"))
+		{
+			Serial.println("hostname ok");
+		}
+		Serial.print("Connecting to ");
+		Serial.println(wifiParams[defaultConnectWifi].SSID);
+		Heltec.display->drawString(0, 00, "Connecting to ");
+		Heltec.display->drawString(00, 10, wifiParams[defaultConnectWifi].SSID);
+		Heltec.display->display();
+
+		WiFi.onEvent(WifiEvent);
+
+		ArduinoOTA.setHostname("Esp32 Lora");
+
+		WiFi.begin(wifiParams[defaultConnectWifi].SSID, wifiParams[defaultConnectWifi].Credential);
+	
+		// Start Web Server
+		serverHTTP.begin();
+
+		if (MDNS.begin(HOSTNAME)) {
+			MDNS.addService("http", "tcp", 80);
+			Serial.println("MDNS responder started");
+			Serial.print("You can now connect to http://");
+			Serial.print(HOSTNAME);
+			Serial.println(".local");
+			
+		}
+
+		initWebSocket();
+		RouteHttp();
+
+		delay(1000);
+		Mode = mode::normal;
+		break;
+	case mode::initSoftAP:
+		Heltec.display->clear();
+		Heltec.display->drawString(0,0,"mode AP");
+		//TODO: 
+		Heltec.display->display();
+		break;
+	case normal:
+		
+		
+		displayData();
+		if (prgButton.frontMontant())
+			{
+				if (displayMode < 5 )
+			{
+				displayMode++;
+			}
+			else
+			{
+				displayMode = 0;
+			}
+		}
+			
+		if (prgButton.pressedTime() > 2000)
+		{
+			Mode = mode::selectModeWifi;
+		}
+		break;
+	case mode::selectStation:
+		Heltec.display->clear();
+		Heltec.display->drawString(0,0,"select Station");
+		//TODO: 
+		Heltec.display->display();
+		break;
+	case mode::selectModeWifi:
+		Heltec.display->clear();
+		Heltec.display->drawString(0,0,"MENU mode Wifi");
+		int decalage;
+		decalage =14;
+		static unsigned long dernierchangement = 0;
+		if (encodRight.frontDesceandant() && !encodLeft.frontDesceandant())
+		{
+			if (millis() - dernierchangement > 100)
+			{
+				dernierchangement = millis();
+				menuModeWifi.selectNext();
+				Serial.println((String) millis() + " next");
+			}else
+			{
+				Serial.println("cancel");
+			}
+			
+			
+			
+		}
+		if (encodLeft.frontDesceandant() && !encodRight.frontDesceandant())
+		{
+			if (millis() - dernierchangement > 100)
+			{
+				Serial.println((String) millis() + " previous");
+				dernierchangement = millis();
+				menuModeWifi.selectPrevious();
+			}else
+			{
+				Serial.println("cancel");
+			}
+			
+		}
+		
+		
+		for (size_t i = 0; i < menuModeWifi.maxRow; i++)
+		{
+			// if (modeWifi[i+menuModeWifi.first].selected)
+			// {
+			// 	Heltec.display->fillRect(0,i*12+decalage,120,12);
+			// 	Heltec.display->setColor(OLEDDISPLAY_COLOR::BLACK);
+			// }else
+			// {
+			// 	Heltec.display->setColor(OLEDDISPLAY_COLOR::WHITE);
+			// }
+		
+			Heltec.display->drawString(12,i*12+decalage,modeWifi[i+menuModeWifi.first]);
+			
+			if (menuModeWifi.select == i+menuModeWifi.first)
+			{
+				//Heltec.display->fillRect(2,i*12+2,8,8);
+				Heltec.display->fillCircle(6,i*12+decalage+6,3);
+			}
+		
+		
+		}
+		if (prgButton.frontDesceandant())
+		{
+			if (modeWifi[menuModeWifi.select] == "AP")
+			{
+				Mode = mode::initSoftAP;
+			}
+			if (modeWifi[menuModeWifi.select]== "STA")
+			{
+				Mode = mode::selectStation;
+			}
+			
+
+		}
+		
+		Heltec.display->display();
+		break;
+	case mode::testbutton:	//TODO Remove This
+		prgButton.loop();
+
+		Serial.print("S "+ (String)prgButton.getState());
+		Serial.print(" pressed "+ (String)prgButton.isPressed());
+		//Serial.print(" released "+ (String)prgButton.isReleased());
+		Serial.print(" fd "+ (String)prgButton.frontDesceandant());
+		Serial.print(" fm "+ (String)prgButton.frontMontant());
+		Serial.print(" time "+ (String)prgButton.pressedTime());
+		Serial.println("");
+		delay(200);
+		break;
+	default:
+		break;
+	}
+}
+void acquisitionEntree(void){
+	prgButton.loop();
+	encodLeft.loop();
+	encodRight.loop();
+}
 // the setup function runs once when you press reset or power the board
 void setup() {
 
@@ -1027,7 +1216,7 @@ void setup() {
 	
 	Heltec.begin(true, true, true, true, BAND);
 	//InitSD();
-	initWifi();
+	// initWifi();
 	configTime(3600, 3600, ntpServer);
 	InitBoard();
 	Heltec.display->clear();
@@ -1041,7 +1230,7 @@ void setup() {
 	}
 	Heltec.display->display();
 	pinMode(25, OUTPUT);
-	pinMode(PRGButton, INPUT_PULLUP);
+
 
 	
 
@@ -1057,8 +1246,7 @@ void setup() {
 	Heltec.display->flipScreenVertically();
 	Heltec.display->setLogBuffer(5, 100);
 
-	initWebSocket();
-	RouteHttp();
+	
 
 
 	strip.begin();
@@ -1086,8 +1274,8 @@ void setup() {
 
 // the loop function runs over and over again until power down or reset
 void loop() {
-   
-   
+   	acquisitionEntree();
+   	handleMode();
 	AffichagePixel();
 
 	myPID.run();
@@ -1107,23 +1295,23 @@ void loop() {
 			notifyClients();
 	}
    
-	if ((digitalRead(PRGButton) == LOW) && !previousEtatbutton)
-	{
-		previousEtatbutton = true;
-		if (displayMode < 5 )
-		{
-			displayMode++;
-		}
-		else
-		{
-			displayMode = 0;
-		}
-	}
-	if (digitalRead(PRGButton) == HIGH)
-	{
-		previousEtatbutton = false;
-	}
-	displayData();
+	// if ((digitalRead(PRGButton) == LOW) && !previousEtatbutton)
+	// {
+	// 	previousEtatbutton = true;
+	// 	if (displayMode < 5 )
+	// 	{
+	// 		displayMode++;
+	// 	}
+	// 	else
+	// 	{
+	// 		displayMode = 0;
+	// 	}
+	// }
+	// if (digitalRead(PRGButton) == HIGH)
+	// {
+	// 	previousEtatbutton = false;
+	// }
+	//displayData();
 
 	for (size_t i = 1; i < allBoard->size(); i++)
 	{

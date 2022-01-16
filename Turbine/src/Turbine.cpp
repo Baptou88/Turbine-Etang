@@ -806,8 +806,9 @@ void setup() {
 	Heltec.display->setLogBuffer(10,30);
 
 	Heltec.display->drawString(0,12,wakeup_reason_toString(esp_sleep_get_wakeup_cause()));
-	pinMode(pinFCVanneFermee, INPUT_PULLUP );
-	pinMode(pinFCVanneOuverte, INPUT_PULLUP);
+
+	pinMode(pinFCVanneFermee, INPUT_PULLDOWN );
+	pinMode(pinFCVanneOuverte, INPUT_PULLDOWN);
 
 
 //encodeurs

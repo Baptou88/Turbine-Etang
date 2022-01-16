@@ -135,7 +135,11 @@ private:
 	
 };
 
-
+struct wifiparamconnexion{
+  const char* SSID;
+  const char* Credential;
+  bool selected ;
+};
 
 
 #endif
