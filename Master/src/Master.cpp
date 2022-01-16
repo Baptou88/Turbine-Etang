@@ -17,7 +17,6 @@
 #include <SD.h>
 #include <WiFi.h>
 #include <heltec.h>
-#include "TurbineEtangLib.h"
 #include <FS.h>
 #include <ArduinoJson.h>
 #include <NTPClient.h>
@@ -25,10 +24,12 @@
 #include <Adafruit_NeoPixel.h>
 #include <AutoPID.h>
 #include <LinkedList.h>
-#include <arduino-timer.h>
+#include <Preferences.h>
+
+
+#include "TurbineEtangLib.h"
 #include "digitalInput.h"
 #include "menu.h"
-
 #include "MasterLib.h"
 #include "websocket.h"
 #include "connexionWifi.h"
@@ -39,21 +40,22 @@
 #define BAND 868E6
 //#define PRGButton 0
 
-digitalInput prgButton(0,INPUT_PULLUP);
+digitalInput* prgButton = new digitalInput(0,INPUT_PULLUP);
 digitalInput encodLeft(36,INPUT_PULLUP);
-digitalInput encodRight(38,INPUT_PULLUP);
+digitalInput* encodRight = new digitalInput(38,INPUT_PULLUP);
 
 #define __DEBUG
 // #define USEIPFIXE
 
 //#ifdef __DEBUG
-	RTC_DATA_ATTR  int intervalleEnvoi = 30000; // 30sec
+	int intervalleEnvoi = 30000; // 30sec
 //#endif
 //#ifndef __DEBUG
 	//int intervalleEnvoi = 60000; // 1 min
 //#endif
 
 RTC_DATA_ATTR byte defaultConnectWifi = 0;
+
 bool previousEtatbutton = false;
 SPIClass spi1;
 
@@ -65,6 +67,8 @@ AsyncWebSocket ws("/ws");
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP);
 
+Preferences preferences;
+
 
 board localboard("Master", MASTER);
 
@@ -73,8 +77,12 @@ board EtangBoard("Etang", ETANG);
 board TurbineBoard("Turbine", TURBINE);
 
 //board *allBoard[3] = {  &localboard, &EtangBoard , &TurbineBoard};
-String  modeWifi[] = {"AP", "STA"};
-menu menuModeWifi(2,2);
+String  modeWifi[] = {"AP", "STA","ScanWifi"};
+
+wifiparamconnexion paramWifi;
+
+menu menuModeWifi(3,3);
+menu menuStationWifi(2,2,encodRight);
 //LinkedList<board*> allBoard = new LinkedList<board*>();
 LinkedListB::LinkedList<board*> *allBoard = new  LinkedListB::LinkedList<board*>();
 
@@ -132,7 +140,7 @@ unsigned long lastCorrectionVanne = 0;
 
 //sauvegarde des données
 unsigned long lastSaveData = 0;
-auto timerSaveData = timer_create_default();
+
 
 Message receivedMessage;
 
@@ -446,6 +454,7 @@ void TraitementCommande(String c){
 		c.replace("ITMSG=","");
 		Serial.println("Modif de l'intervalle d'envoi de msg par " + String(c.toInt()));
 		intervalleEnvoi = c.toInt();
+		preferences.putInt("intervalleEnvoi",intervalleEnvoi);
 	}
 	
 	
@@ -465,7 +474,7 @@ board* searchBoardById(int id) {
 	return 0;
 }
 
-void RouteHttp() {
+void RouteHttpSTA() {
 	serverHTTP.onNotFound([](AsyncWebServerRequest* request) {
 		request->send_P(404, "text/html", "404 notfound");
 		});
@@ -566,6 +575,59 @@ void RouteHttp() {
 	
 }
 
+void RouteHttpAP(){
+	serverHTTP.on("/",HTTP_GET,[](AsyncWebServerRequest *request){
+      Serial.println("erer");
+      request->send(SPIFFS,"/wifimanager.html","text/html",false,processor);
+    });
+    serverHTTP.on("/style.css",HTTP_GET,[](AsyncWebServerRequest * request){
+      request->send(SPIFFS,"/style.css","");
+    });
+    serverHTTP.on("/ping.js",HTTP_GET,[](AsyncWebServerRequest * request){
+      request->send(SPIFFS,"/ping.js","");
+    });
+    
+    serverHTTP.on("/",HTTP_POST,[](AsyncWebServerRequest *request){
+      int params = request->params();
+      for (int i = 0; i < params; i++)
+      {
+        AsyncWebParameter* p = request->getParam(i);
+        if (p->isPost())
+        {
+			// TODO
+        //   if (p->name()== PARAM_INPUT_1)
+        //   {
+        //     ssid = p->value().c_str();
+        //     Serial.print("SSID set to: ");
+        //     Serial.println(ssid);
+        //     writeFile(SPIFFS,ssidPath,ssid.c_str());
+        //   }
+        //   if (p->name() == PARAM_INPUT_2) {
+        //     pass = p->value().c_str();
+        //     Serial.print("Password set to: ");
+        //     Serial.println(pass);
+        //     // Write file to save value
+        //     writeFile(SPIFFS, passPath, pass.c_str());
+        //   }
+        //   // HTTP POST ip value
+        //   if (p->name() == PARAM_INPUT_3) {
+        //     ip = p->value().c_str();
+        //     Serial.print("IP Address set to: ");
+        //     Serial.println(ip);
+        //     // Write file to save value
+        //     writeFile(SPIFFS, ipPath, ip.c_str());
+        //  }
+          
+        }
+        
+      }
+      //request->send(200, "text/plain", "Done. ESP will restart, connect to your router and go to IP address: " + ip);
+      request->send(SPIFFS,"/redirect.html","text/html",false,processor);
+      delay(5000);
+      //ESP.restart();
+    });
+	Serial.println("Route HTTP AP Ok!");
+}
 void WifiEvent(WiFiEvent_t event){
 	Serial.printf("[WiFi-event] event: %d\n", event);
 	switch (event) {
@@ -965,9 +1027,9 @@ void  initWifi(void)
 	}
 	Heltec.display->clear();
 	Serial.print("Connecting to ");
-	Serial.println(wifiParams[defaultConnectWifi].SSID);
+	Serial.println(paramWifi.SSID);
 	Heltec.display->drawString(0, 00, "Connecting to ");
-	Heltec.display->drawString(00, 10, wifiParams[defaultConnectWifi].SSID);
+	Heltec.display->drawString(00, 10, paramWifi.SSID);
 	Heltec.display->display();
 
 	WiFi.onEvent(WifiEvent);
@@ -978,7 +1040,7 @@ void  initWifi(void)
 	// Mode de connexion
 	
 
-	WiFi.begin(wifiParams[defaultConnectWifi].SSID, wifiParams[defaultConnectWifi].Credential);
+	WiFi.begin(paramWifi.SSID, paramWifi.Credential);
 	
 	// Start Web Server
 	serverHTTP.begin();
@@ -1039,7 +1101,8 @@ void handleMode(){
 	{
 	case initSTA:
 		Heltec.display->clear();
-
+		
+		WiFi.disconnect();
 		WiFi.mode(wifi_mode_t::WIFI_MODE_STA);
 		// if (!WiFi.config(IP, gateway, subnet,gateway)){
 		// Serial.println("STA Failed to configure");
@@ -1050,16 +1113,16 @@ void handleMode(){
 			Serial.println("hostname ok");
 		}
 		Serial.print("Connecting to ");
-		Serial.println(wifiParams[defaultConnectWifi].SSID);
+		Serial.println(paramWifi.SSID);
 		Heltec.display->drawString(0, 00, "Connecting to ");
-		Heltec.display->drawString(00, 10, wifiParams[defaultConnectWifi].SSID);
+		Heltec.display->drawString(00, 10, paramWifi.SSID);
 		Heltec.display->display();
 
 		WiFi.onEvent(WifiEvent);
 
 		ArduinoOTA.setHostname("Esp32 Lora");
 
-		WiFi.begin(wifiParams[defaultConnectWifi].SSID, wifiParams[defaultConnectWifi].Credential);
+		WiFi.begin(paramWifi.SSID, paramWifi.Credential);
 	
 		// Start Web Server
 		serverHTTP.begin();
@@ -1074,22 +1137,32 @@ void handleMode(){
 		}
 
 		initWebSocket();
-		RouteHttp();
+		RouteHttpSTA();
 
 		delay(1000);
 		Mode = mode::normal;
 		break;
 	case mode::initSoftAP:
+		Serial.println("ok1");
 		Heltec.display->clear();
 		Heltec.display->drawString(0,0,"mode AP");
 		//TODO: 
+		WiFi.disconnect();
+		
+		Serial.println("ok");
+		WiFi.mode(WIFI_AP);
+		serverHTTP.begin();
+		RouteHttpAP();
+    	WiFi.softAP("ESP-WIFI-Manager", NULL);
+		
 		Heltec.display->display();
+		Mode = mode::normal;
 		break;
-	case normal:
+	case mode::normal:
 		
 		
 		displayData();
-		if (prgButton.frontMontant())
+		if (prgButton->frontMontant())
 			{
 				if (displayMode < 5 )
 			{
@@ -1101,24 +1174,43 @@ void handleMode(){
 			}
 		}
 			
-		if (prgButton.pressedTime() > 2000)
+		if (prgButton->pressedTime() > 2000)
 		{
 			Mode = mode::selectModeWifi;
 		}
 		break;
 	case mode::selectStation:
 		Heltec.display->clear();
-		Heltec.display->drawString(0,0,"select Station");
-		//TODO: 
+		Heltec.display->drawString(0,0,"Select Station");
+		int decalage ;
+   		 decalage = 14;
+		menuStationWifi.loop();
+		for (size_t i = 0; i < menuStationWifi.maxRow; i++)
+		{
+			Heltec.display->drawString(10,i*12+decalage,wifiParams[i+menuStationWifi.first].SSID);
+			if (menuStationWifi.select == i+menuStationWifi.first)
+			{
+				//Heltec.display->fillRect(2,i*12+2,8,8);
+				Heltec.display->fillCircle(6,i*12+decalage+6,3);
+			}
+		}
+		
+		if (prgButton->frontDesceandant())
+		{
+			paramWifi = wifiParams[menuStationWifi.select];
+			Serial.println(paramWifi.SSID);
+			Mode = mode::initSTA;
+		}
+		
 		Heltec.display->display();
 		break;
 	case mode::selectModeWifi:
 		Heltec.display->clear();
 		Heltec.display->drawString(0,0,"MENU mode Wifi");
-		int decalage;
+		//int decalage;
 		decalage =14;
 		static unsigned long dernierchangement = 0;
-		if (encodRight.frontDesceandant() && !encodLeft.frontDesceandant())
+		if (encodRight->frontDesceandant() && !encodLeft.frontDesceandant())
 		{
 			if (millis() - dernierchangement > 100)
 			{
@@ -1133,7 +1225,7 @@ void handleMode(){
 			
 			
 		}
-		if (encodLeft.frontDesceandant() && !encodRight.frontDesceandant())
+		if (encodLeft.frontDesceandant() && !encodRight->frontDesceandant())
 		{
 			if (millis() - dernierchangement > 100)
 			{
@@ -1169,7 +1261,7 @@ void handleMode(){
 		
 		
 		}
-		if (prgButton.frontDesceandant())
+		if (prgButton->frontDesceandant())
 		{
 			if (modeWifi[menuModeWifi.select] == "AP")
 			{
@@ -1179,6 +1271,10 @@ void handleMode(){
 			{
 				Mode = mode::selectStation;
 			}
+			if (modeWifi[menuModeWifi.select]== "ScanWifi")
+			{
+				// TODO Mode = mode:: ;
+			}
 			
 
 		}
@@ -1186,14 +1282,14 @@ void handleMode(){
 		Heltec.display->display();
 		break;
 	case mode::testbutton:	//TODO Remove This
-		prgButton.loop();
+		prgButton->loop();
 
-		Serial.print("S "+ (String)prgButton.getState());
-		Serial.print(" pressed "+ (String)prgButton.isPressed());
+		Serial.print("S "+ (String)prgButton->getState());
+		Serial.print(" pressed "+ (String)prgButton->isPressed());
 		//Serial.print(" released "+ (String)prgButton.isReleased());
-		Serial.print(" fd "+ (String)prgButton.frontDesceandant());
-		Serial.print(" fm "+ (String)prgButton.frontMontant());
-		Serial.print(" time "+ (String)prgButton.pressedTime());
+		Serial.print(" fd "+ (String)prgButton->frontDesceandant());
+		Serial.print(" fm "+ (String)prgButton->frontMontant());
+		Serial.print(" time "+ (String)prgButton->pressedTime());
 		Serial.println("");
 		delay(200);
 		break;
@@ -1202,21 +1298,25 @@ void handleMode(){
 	}
 }
 void acquisitionEntree(void){
-	prgButton.loop();
+	prgButton->loop();
 	encodLeft.loop();
-	encodRight.loop();
+	encodRight->loop();
 }
 // the setup function runs once when you press reset or power the board
 void setup() {
-
+	
 	allBoard->add(&localboard);
 	allBoard->add(&TurbineBoard);
 	allBoard->add(&EtangBoard);
 	
 	
+	
+	
 	Heltec.begin(true, true, true, true, BAND);
 	//InitSD();
 	// initWifi();
+
+
 	configTime(3600, 3600, ntpServer);
 	InitBoard();
 	Heltec.display->clear();
@@ -1228,12 +1328,20 @@ void setup() {
 	{
 		Heltec.display->drawString(0,10,"SPIFFS OK");
 	}
+	if (preferences.begin("Master",false))
+	{
+		Serial.println("Preference Initialized");
+		Heltec.display->drawString(0,10,"Preference Initialized");
+		
+		intervalleEnvoi = preferences.getInt("intervalleEnvoi",intervalleEnvoi);
+	}
+
 	Heltec.display->display();
 	pinMode(25, OUTPUT);
 
 
 	
-
+	paramWifi = wifiParams[defaultConnectWifi];
 	
 
 	LoRa.onReceive(onReceive);
