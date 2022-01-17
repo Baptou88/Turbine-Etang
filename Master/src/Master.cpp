@@ -54,7 +54,7 @@ digitalInput* encodRight = new digitalInput(38,INPUT_PULLUP);
 	//int intervalleEnvoi = 60000; // 1 min
 //#endif
 
-RTC_DATA_ATTR byte defaultConnectWifi = 0;
+RTC_DATA_ATTR byte defaultConnectWifi = 0; //
 
 bool previousEtatbutton = false;
 SPIClass spi1;

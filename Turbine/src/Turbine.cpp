@@ -12,6 +12,8 @@
 #include <Adafruit_INA260.h>
 
 
+#include "digitalInput.h"
+
 #define BAND 868E6
 #define PRGButton 0
 
