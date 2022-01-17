@@ -8,6 +8,7 @@ class menu
 {
 private:
   /* data */
+  void(*clbkrender )(int,int,bool) ;
 public:
 /**
  * @brief Construct a new menu object
@@ -15,9 +16,10 @@ public:
  * @param maxI 
  * @param maxR 
  */
-  menu(int maxI,int maxR,digitalInput* buttonRight);
+  menu(int maxI,int maxR,digitalInput* buttonRight, digitalInput* buttonLeft);
   ~menu();
-  void onRender(void(*callback)(int));
+  void render();
+  void onRender(void(*callback)(int,int,bool));
   void onSelect(void(*callback)(int));
   void onNext();
   int getFirst();
@@ -33,6 +35,7 @@ public:
   int first=0;
   int last =0;
   digitalInput *btnRight;
+  digitalInput *btnLeft;
 };
 
 /**
@@ -42,7 +45,7 @@ public:
  * @param maxR maximum d'elements pour le rendu
  * @param buttonRight bontou pour selectionner l'elements suivant
  */
-menu::menu(int maxI,int maxR,digitalInput* buttonRight = NULL)
+menu::menu(int maxI,int maxR,digitalInput* buttonRight = NULL,digitalInput* buttonLeft = NULL)
 {
   maxItems = maxI;
   maxRow = maxR;
@@ -52,6 +55,10 @@ menu::menu(int maxI,int maxR,digitalInput* buttonRight = NULL)
   if (buttonRight != NULL)
   {
     btnRight = buttonRight;
+  }
+  if (buttonLeft != NULL)
+  {
+    btnLeft = buttonLeft;
   }
   
 }
@@ -65,6 +72,12 @@ void menu::loop(){
   {
     if(btnRight->frontDesceandant()){
       selectNext();
+    }
+  }
+  if (btnLeft != NULL)
+  {
+    if(btnLeft->frontDesceandant()){
+      selectPrevious();
     }
   }
   
@@ -112,6 +125,31 @@ int menu::selectPrevious(){
     return 0;
   }
   return select;
+  
+}
+void menu::onRender(void(*callback)(int num,int numel,bool hover)){
+  clbkrender = callback;
+}
+void menu::render(){
+  
+  for (size_t i = 0; i < maxRow; i++)
+  {
+    if (clbkrender != NULL)
+    {
+      if (select == i + first) // TODO change this
+      {
+        clbkrender(i,i+first,true);
+      }else
+      {
+        clbkrender(i,i+first,false);
+      }
+      
+      
+      
+    }
+    
+    
+  }
   
 }
 

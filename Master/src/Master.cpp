@@ -41,7 +41,7 @@
 //#define PRGButton 0
 
 digitalInput* prgButton = new digitalInput(0,INPUT_PULLUP);
-digitalInput encodLeft(36,INPUT_PULLUP);
+digitalInput* encodLeft = new digitalInput(36,INPUT_PULLUP);
 digitalInput* encodRight = new digitalInput(38,INPUT_PULLUP);
 
 #define __DEBUG
@@ -81,8 +81,9 @@ String  modeWifi[] = {"AP", "STA","ScanWifi"};
 
 wifiparamconnexion paramWifi;
 
-menu menuModeWifi(3,3);
-menu menuStationWifi(2,2,encodRight);
+menu menuModeWifi(3,3,encodRight,encodLeft);
+
+menu menuStationWifi(2,2,encodRight,encodLeft);
 //LinkedList<board*> allBoard = new LinkedList<board*>();
 LinkedListB::LinkedList<board*> *allBoard = new  LinkedListB::LinkedList<board*>();
 
@@ -1182,18 +1183,21 @@ void handleMode(){
 	case mode::selectStation:
 		Heltec.display->clear();
 		Heltec.display->drawString(0,0,"Select Station");
-		int decalage ;
-   		 decalage = 14;
+		
 		menuStationWifi.loop();
-		for (size_t i = 0; i < menuStationWifi.maxRow; i++)
-		{
-			Heltec.display->drawString(10,i*12+decalage,wifiParams[i+menuStationWifi.first].SSID);
-			if (menuStationWifi.select == i+menuStationWifi.first)
-			{
-				//Heltec.display->fillRect(2,i*12+2,8,8);
-				Heltec.display->fillCircle(6,i*12+decalage+6,3);
-			}
-		}
+		menuStationWifi.render();
+
+		//int decalage ;
+   		 //decalage = 14;
+		// for (size_t i = 0; i < menuStationWifi.maxRow; i++)
+		// {
+		// 	Heltec.display->drawString(10,i*12+decalage,wifiParams[i+menuStationWifi.first].SSID);
+		// 	if (menuStationWifi.select == i+menuStationWifi.first)
+		// 	{
+		// 		//Heltec.display->fillRect(2,i*12+2,8,8);
+		// 		Heltec.display->fillCircle(6,i*12+decalage+6,3);
+		// 	}
+		// }
 		
 		if (prgButton->frontDesceandant())
 		{
@@ -1207,60 +1211,62 @@ void handleMode(){
 	case mode::selectModeWifi:
 		Heltec.display->clear();
 		Heltec.display->drawString(0,0,"MENU mode Wifi");
-		//int decalage;
-		decalage =14;
-		static unsigned long dernierchangement = 0;
-		if (encodRight->frontDesceandant() && !encodLeft.frontDesceandant())
-		{
-			if (millis() - dernierchangement > 100)
-			{
-				dernierchangement = millis();
-				menuModeWifi.selectNext();
-				Serial.println((String) millis() + " next");
-			}else
-			{
-				Serial.println("cancel");
-			}
+		// int decalage;
+		// decalage =14;
+		menuModeWifi.loop();
+		menuModeWifi.render();
+		// static unsigned long dernierchangement = 0;
+		// if (encodRight->frontDesceandant() && !encodLeft.frontDesceandant())
+		// {
+		// 	if (millis() - dernierchangement > 100)
+		// 	{
+		// 		dernierchangement = millis();
+		// 		menuModeWifi.selectNext();
+		// 		Serial.println((String) millis() + " next");
+		// 	}else
+		// 	{
+		// 		Serial.println("cancel");
+		// 	}
 			
 			
 			
-		}
-		if (encodLeft.frontDesceandant() && !encodRight->frontDesceandant())
-		{
-			if (millis() - dernierchangement > 100)
-			{
-				Serial.println((String) millis() + " previous");
-				dernierchangement = millis();
-				menuModeWifi.selectPrevious();
-			}else
-			{
-				Serial.println("cancel");
-			}
+		// }
+		// if (encodLeft.frontDesceandant() && !encodRight->frontDesceandant())
+		// {
+		// 	if (millis() - dernierchangement > 100)
+		// 	{
+		// 		Serial.println((String) millis() + " previous");
+		// 		dernierchangement = millis();
+		// 		menuModeWifi.selectPrevious();
+		// 	}else
+		// 	{
+		// 		Serial.println("cancel");
+		// 	}
 			
-		}
+		// }
 		
 		
-		for (size_t i = 0; i < menuModeWifi.maxRow; i++)
-		{
-			// if (modeWifi[i+menuModeWifi.first].selected)
-			// {
-			// 	Heltec.display->fillRect(0,i*12+decalage,120,12);
-			// 	Heltec.display->setColor(OLEDDISPLAY_COLOR::BLACK);
-			// }else
-			// {
-			// 	Heltec.display->setColor(OLEDDISPLAY_COLOR::WHITE);
-			// }
+		// for (size_t i = 0; i < menuModeWifi.maxRow; i++)
+		// {
+		// 	// if (modeWifi[i+menuModeWifi.first].selected)
+		// 	// {
+		// 	// 	Heltec.display->fillRect(0,i*12+decalage,120,12);
+		// 	// 	Heltec.display->setColor(OLEDDISPLAY_COLOR::BLACK);
+		// 	// }else
+		// 	// {
+		// 	// 	Heltec.display->setColor(OLEDDISPLAY_COLOR::WHITE);
+		// 	// }
 		
-			Heltec.display->drawString(12,i*12+decalage,modeWifi[i+menuModeWifi.first]);
+		// 	Heltec.display->drawString(12,i*12+decalage,modeWifi[i+menuModeWifi.first]);
 			
-			if (menuModeWifi.select == i+menuModeWifi.first)
-			{
-				//Heltec.display->fillRect(2,i*12+2,8,8);
-				Heltec.display->fillCircle(6,i*12+decalage+6,3);
-			}
+		// 	if (menuModeWifi.select == i+menuModeWifi.first)
+		// 	{
+		// 		//Heltec.display->fillRect(2,i*12+2,8,8);
+		// 		Heltec.display->fillCircle(6,i*12+decalage+6,3);
+		// 	}
 		
 		
-		}
+		// }
 		if (prgButton->frontDesceandant())
 		{
 			if (modeWifi[menuModeWifi.select] == "AP")
@@ -1299,7 +1305,7 @@ void handleMode(){
 }
 void acquisitionEntree(void){
 	prgButton->loop();
-	encodLeft.loop();
+	encodLeft->loop();
 	encodRight->loop();
 }
 // the setup function runs once when you press reset or power the board
@@ -1310,7 +1316,25 @@ void setup() {
 	allBoard->add(&EtangBoard);
 	
 	
-	
+	menuModeWifi.onRender([](int num, int numel,bool hover){
+		//Serial.println("onrendermodeWifi " + (String)num + (String)numel);
+		Heltec.display->drawString(12,num*12+14,modeWifi[numel]);
+		if (hover)
+		{
+			Heltec.display->fillCircle(6,num*12+14+6,3);
+		}
+		
+	});
+	menuStationWifi.onRender([](int num, int numel,bool hover){
+		
+		//Serial.println("onrenderStation " + (String)num + (String)numel);
+		Heltec.display->drawString(10,num*12+14,wifiParams[numel].SSID);
+		if (hover)
+		{
+			Heltec.display->fillCircle(6,num*12+14+6,3);
+		}
+		
+	});
 	
 	Heltec.begin(true, true, true, true, BAND);
 	//InitSD();
@@ -1331,7 +1355,7 @@ void setup() {
 	if (preferences.begin("Master",false))
 	{
 		Serial.println("Preference Initialized");
-		Heltec.display->drawString(0,10,"Preference Initialized");
+		Heltec.display->drawString(0,22,"Preference Initialized");
 		
 		intervalleEnvoi = preferences.getInt("intervalleEnvoi",intervalleEnvoi);
 	}
