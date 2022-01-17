@@ -34,6 +34,7 @@ public:
   int select = 0;
   int first=0;
   int last =0;
+  unsigned long lastChanged = 0;
   digitalInput *btnRight;
   digitalInput *btnLeft;
 };
@@ -71,13 +72,24 @@ void menu::loop(){
   if (btnRight != NULL)
   {
     if(btnRight->frontDesceandant()){
-      selectNext();
+      if (millis() - lastChanged>100)
+      {
+        lastChanged = millis();
+        selectNext();
+      }
+      
+      //selectNext();
     }
   }
   if (btnLeft != NULL)
   {
     if(btnLeft->frontDesceandant()){
-      selectPrevious();
+      if (millis() - lastChanged>100)
+      {
+        lastChanged = millis();
+        selectPrevious();
+      }
+      //selectPrevious();
     }
   }
   
