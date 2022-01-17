@@ -43,6 +43,7 @@
 digitalInput* prgButton = new digitalInput(0,INPUT_PULLUP);
 digitalInput* encodLeft = new digitalInput(36,INPUT_PULLUP);
 digitalInput* encodRight = new digitalInput(38,INPUT_PULLUP);
+digitalInput* testbtn = new digitalInput(2,INPUT_PULLDOWN);
 
 #define __DEBUG
 // #define USEIPFIXE
@@ -161,7 +162,7 @@ enum mode{
 	normal,
 	testbutton, // TODO remove this
 };
-mode Mode = initSTA; 
+mode Mode = testbutton; //TODO change this
 
 
 
@@ -1288,14 +1289,14 @@ void handleMode(){
 		Heltec.display->display();
 		break;
 	case mode::testbutton:	//TODO Remove This
-		prgButton->loop();
+		testbtn->loop();
 
-		Serial.print("S "+ (String)prgButton->getState());
-		Serial.print(" pressed "+ (String)prgButton->isPressed());
-		//Serial.print(" released "+ (String)prgButton.isReleased());
-		Serial.print(" fd "+ (String)prgButton->frontDesceandant());
-		Serial.print(" fm "+ (String)prgButton->frontMontant());
-		Serial.print(" time "+ (String)prgButton->pressedTime());
+		Serial.print("S "+ (String)testbtn->getState());
+		Serial.print(" pressed "+ (String)testbtn->isPressed());
+		Serial.print(" released "+ (String)testbtn->isReleased());
+		Serial.print(" fd "+ (String)testbtn->frontDesceandant());
+		Serial.print(" fm "+ (String)testbtn->frontMontant());
+		Serial.print(" time "+ (String)testbtn->pressedTime());
 		Serial.println("");
 		delay(200);
 		break;

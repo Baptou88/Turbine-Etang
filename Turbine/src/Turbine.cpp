@@ -13,6 +13,7 @@
 
 
 #include "digitalInput.h"
+#include "digitalOutput.h"
 
 #define BAND 868E6
 #define PRGButton 0
@@ -20,13 +21,17 @@
 #define TAILLETAB 24
 
 //entree
-#define FCVanneOuverte 0
-#define FCVanneFerme 1
-#define EPRGBUTTON 2
-
+// #define FCVanneOuverte 0
+// #define FCVanneFerme 1
+// #define EPRGBUTTON 2
+digitalInput FCVanneOuverte(39,INPUT_PULLDOWN); //TODO 
+digitalInput FCVanneFermee(38,INPUT_PULLDOWN);
+digitalInput* PrgButton= new digitalInput(PRGButton,INPUT_PULLUP);
 //sortie
-#define OuvertureVanne 0
-#define FermetureVanne 1
+digitalOutput* OuvertureVanne = new digitalOutput(12);
+digitalOutput* FermetureVanne = new digitalOutput(13);
+// #define OuvertureVanne 0
+// #define FermetureVanne 1
 
 byte localAddress = 0x0B;
 byte msgCount = 0;
@@ -49,10 +54,13 @@ Preferences preferences;
 
 unsigned long dernierAppuibutton = 0;
 
-const int pinOuvertureVanne = 12;
-const int pinFermetureVanne = 13;
-const byte pinFCVanneOuverte = 39;
-const byte pinFCVanneFermee = 38;
+// const int pinOuvertureVanne = 12;
+// const int pinFermetureVanne = 13;
+
+
+// const byte pinFCVanneOuverte = 39;
+// const byte pinFCVanneFermee = 38;
+
 volatile long countEncodA = 0;
 volatile long countEncodB = 0;
 
@@ -273,9 +281,12 @@ void mesureIntensite(void){
 	
 }
 void acquisitionEntree(void) {
-	Entree[FCVanneOuverte] = digitalRead(pinFCVanneOuverte) ? true :false ;
-	Entree[FCVanneFerme] = digitalRead(pinFCVanneFermee) ? true : false;
-	Entree[EPRGBUTTON] = digitalRead(PRGButton)? true : false;
+	FCVanneFermee.loop();
+	FCVanneOuverte.loop();
+	PrgButton->loop();
+	// Entree[FCVanneOuverte] = digitalRead(pinFCVanneOuverte) ? true :false ;
+	// Entree[FCVanneFerme] = digitalRead(pinFCVanneFermee) ? true : false;
+	// Entree[EPRGBUTTON] = digitalRead(PRGButton)? true : false;
 	mesureIntensite();
 	if (millis()> previousCalculTaqui + 2000)
 	{
@@ -392,23 +403,23 @@ void EvolutionGraphe(void) {
 	// calcul des transitions
 
 	Transition[0] = Etape[Init];
-	Transition[1] = Etape[DelaiPOM] && Entree[EPRGBUTTON] == false /*&& FrontMontant[BP]*/;
-	Transition[2] = Etape[DelaiPOM] && (Entree[FCVanneFerme] == true) && finTempo(2);
-	Transition[3] = Etape[DelaiPOM] && (Entree[FCVanneFerme] == false) && finTempo(2);
-	Transition[4] = Etape[POMO] && (Entree[FCVanneFerme] == false);
-	Transition[5] = Etape[POMF] && (Entree[FCVanneFerme] == true);
+	Transition[1] = Etape[DelaiPOM] && PrgButton->frontDesceandant();//Entree[EPRGBUTTON] == false /*&& FrontMontant[BP]*/;
+	Transition[2] = Etape[DelaiPOM] && FCVanneFermee.isPressed() && finTempo(2);   // (Entree[FCVanneFerme] == true) 
+	Transition[3] = Etape[DelaiPOM] && FCVanneFermee.isReleased() && finTempo(2); //(Entree[FCVanneFerme] == false)
+	Transition[4] = Etape[POMO] && FCVanneFermee.isReleased() ;//(Entree[FCVanneFerme] == false);
+	Transition[5] = Etape[POMF] && FCVanneFermee.isPressed() ;//(Entree[FCVanneFerme] == true);
 	Transition[6] = Etape[STOPPOMF] ;
 	Transition[7] = Etape[AttenteOrdre] && consigneMoteur < 0;
 	Transition[8] = Etape[AttenteOrdre] && consigneMoteur > 0;
-	Transition[9] = Etape[OuvrirVanne] && (consigneMoteur < 0 || Entree[FCVanneOuverte]);
-	Transition[10] = Etape[FermerVanne] && (consigneMoteur > 0 || Entree[FCVanneFerme]);
+	Transition[9] = Etape[OuvrirVanne] && (consigneMoteur < 0 || FCVanneOuverte.isPressed());//Entree[FCVanneOuverte]
+	Transition[10] = Etape[FermerVanne] && (consigneMoteur > 0 || FCVanneFermee.isPressed());//Entree[FCVanneFerme]
 	Transition[11] = Etape[StopMoteur] && finTempo(0);
 	Transition[12] = Etape[AttenteOrdre] && EnvoyerStatut;
 	Transition[13] = Etape[EnvoyerMessage] ;
 	Transition[14] = Etape[AttenteOrdre] && bOuvertureTotale;
 	Transition[15] = Etape[AttenteOrdre] && bFermetureTotale;
-	Transition[16] = Etape[OuvertureTotale] && (Entree[FCVanneOuverte] == true);
-	Transition[17] = Etape[FermetureTotale] && (Entree[FCVanneFerme] == true);
+	Transition[16] = Etape[OuvertureTotale] && FCVanneOuverte.isPressed();//(Entree[FCVanneOuverte] == true)
+	Transition[17] = Etape[FermetureTotale] && FCVanneFermee.isPressed();//(Entree[FCVanneFerme] == true)
 	Transition[18] = Etape[OuvrirVanne] && currentValue> maxIntensite;
 	Transition[19] = Etape[FermerVanne] && currentValue> maxIntensite;
 	Transition[20] = Etape[OuvertureTotale] && currentValue> maxIntensite;
@@ -494,7 +505,8 @@ void EvolutionGraphe(void) {
 	{
 		EtapeActuel = FermerVanne;
 		StatutVanne = "Fermeture";
-		Sortie[FermetureVanne] = 1;
+		//Sortie[FermetureVanne] = 1;
+		FermetureVanne->setState(true);
 		asservissementMoteur();
 	}
 
@@ -502,7 +514,8 @@ void EvolutionGraphe(void) {
 	{
 		EtapeActuel = OuvrirVanne;
 		StatutVanne = "Ouverture";
-		Sortie[OuvertureVanne] = 1;
+		//Sortie[OuvertureVanne] = 1;
+		OuvertureVanne->setState(true);
 		asservissementMoteur();
 	}
 
@@ -512,8 +525,10 @@ void EvolutionGraphe(void) {
 		StatutVanne = "Arret";
 		startTempo(0, 1000);
 		EtapeActuel = StopMoteur;
-		Sortie[OuvertureVanne] = 0;
-		Sortie[FermetureVanne] = 0;
+		// Sortie[OuvertureVanne] = 0;
+		// Sortie[FermetureVanne] = 0;
+		OuvertureVanne->setState(false);
+		FermetureVanne->setState(false);
 		
 	}
 	if (Etape[EnvoyerMessage])
@@ -539,8 +554,8 @@ void EvolutionGraphe(void) {
 		EtapeActuel = OuvertureTotale;
 		StatutVanne = "Ouverture";
 		bOuvertureTotale = false;
-		Sortie[OuvertureVanne] = 1;
-		
+		// Sortie[OuvertureVanne] = 1;
+		OuvertureVanne->setState(true);		
 	}
 	if (Etape[FermetureTotale])
 	{
@@ -549,14 +564,17 @@ void EvolutionGraphe(void) {
 		EtapeActuel = FermetureTotale;
 		bFermetureTotale = false;
 		
-		Sortie[FermetureVanne] = 1;
+		// Sortie[FermetureVanne] = 1;
+		FermetureVanne->setState(true);
 	}
 	if (Etape[StopMoteurIntensite])
 	{
 		EtapeActuel = StopMoteurIntensite;
 		StatutVanne = "Arret Intensite";
-		Sortie[OuvertureVanne] = 0;
-		Sortie[FermetureVanne] = 0;
+		// Sortie[OuvertureVanne] = 0;
+		// Sortie[FermetureVanne] = 0;
+		FermetureVanne->setState(false);
+		OuvertureVanne->setState(false);
 
 
 
@@ -573,28 +591,35 @@ void EvolutionGraphe(void) {
 	if (Etape[POMO])
 	{
 		EtapeActuel = POMO;
-		Sortie[OuvertureVanne] = 1;
+		// Sortie[OuvertureVanne] = 1;
+		OuvertureVanne->setState(true);
 		
 	}
 	if (Etape[POMF])
 	{
 		EtapeActuel = POMF;
-		Sortie[OuvertureVanne] = 0;
-		Sortie[FermetureVanne] = 1;
+		//Sortie[OuvertureVanne] = 0;
+		//Sortie[FermetureVanne] = 1;
+		FermetureVanne->setState(true);
+		OuvertureVanne->setState(false);
 	}
 	if (Etape[STOPPOMF])
 	{
 		EtapeActuel = STOPPOMF;
-		Sortie[OuvertureVanne] = 0;
-		Sortie[FermetureVanne] = 0;
+		// Sortie[OuvertureVanne] = 0;
+		// Sortie[FermetureVanne] = 0;
+		FermetureVanne->setState(false);
+		OuvertureVanne->setState(false);
 		posMoteur = 0;
 		countEncodA = 0;
 	}
 	if (Etape[STOPPOMO])
 	{
 		EtapeActuel = STOPPOMO;
-		Sortie[OuvertureVanne] = 0;
-		Sortie[FermetureVanne] = 0;
+		// Sortie[OuvertureVanne] = 0;
+		// Sortie[FermetureVanne] = 0;
+		FermetureVanne->setState(false);
+		OuvertureVanne->setState(false);
 		ouvertureMax = posMoteur;
 	}
 
@@ -602,8 +627,10 @@ void EvolutionGraphe(void) {
 }
 
 void miseAjourSortie(void) {
-	digitalWrite(pinOuvertureVanne, Sortie[OuvertureVanne]);
-	digitalWrite(pinFermetureVanne, Sortie[FermetureVanne]);
+	// digitalWrite(pinOuvertureVanne, Sortie[OuvertureVanne]);
+	// digitalWrite(pinFermetureVanne, Sortie[FermetureVanne]);
+	OuvertureVanne->loop();
+	FermetureVanne->loop();
 }
 // fonction d'arrêt d'une tempo
 void stopTempo(int numTempo) {
@@ -663,8 +690,8 @@ void IRAM_ATTR EncodB() {
 			}
 			Heltec.display->drawString(25, 50, "Etape: " + String(EtapeToString( EtapeActuel)));
 		
-			Heltec.display->drawString(5, 55, Entree[FCVanneFerme]? "*" : "");
-			Heltec.display->drawString(110, 55, Entree[FCVanneOuverte] ? "*" : "");
+			Heltec.display->drawString(5, 55, FCVanneFermee.isPressed() ? "*" : "");
+			Heltec.display->drawString(110, 55, FCVanneOuverte.isPressed() ? "*" : "");
 			break;
 		case 1:
 			Heltec.display->drawString(60,0,String(posMoteur));
@@ -721,8 +748,10 @@ void IRAM_ATTR EncodB() {
 	 Serial.print("Sortie: ");
 	 for (byte i = 0; i < TAILLETAB; i++)
 	 {
-		 Serial.print(Sortie[i]);
+		 //Serial.print(Sortie[i]);
 	 }
+	 Serial.print(" F " + (String) FermetureVanne->getState());
+	 Serial.print(" O " + (String) OuvertureVanne->getState());
 	 Serial.println("-");
  }
 
@@ -809,13 +838,13 @@ void setup() {
 
 	Heltec.display->drawString(0,12,wakeup_reason_toString(esp_sleep_get_wakeup_cause()));
 
-	pinMode(pinFCVanneFermee, INPUT_PULLDOWN );
-	pinMode(pinFCVanneOuverte, INPUT_PULLDOWN);
+	// pinMode(pinFCVanneFermee, INPUT_PULLDOWN );
+	// pinMode(pinFCVanneOuverte, INPUT_PULLDOWN);
 
 
 //encodeurs
-	pinMode(pinFermetureVanne, OUTPUT);
-	pinMode(pinOuvertureVanne, OUTPUT);
+	// pinMode(pinFermetureVanne, OUTPUT);
+	// pinMode(pinOuvertureVanne, OUTPUT);
 
 	pinMode(pinEncodA, INPUT_PULLUP);
 	attachInterrupt(pinEncodA, EncodA,RISING);

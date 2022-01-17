@@ -73,9 +73,34 @@ bool digitalInput::isPressed(){
         {
             return true;
         }
-        
+        return false;
+    }else //if (_mode == INPUT_PULLDOWN)
+    {
+        if (_state == LOW)
+        {
+            return false;
+        }
+        return true;
     }
-    return false;
+    return _state;
+}
+bool digitalInput::isReleased(){
+    if (_mode == INPUT_PULLUP)
+    {
+        if (_state == HIGH)
+        {
+            return true;
+        }
+        return false;
+    }else //if (_mode == INPUT_PULLDOWN)
+    {
+        if (_state == HIGH)
+        {
+            return false;
+        }
+        return true;
+    }
+    return _state;
 }
 bool  digitalInput::frontDesceandant(){
     return (_previousState == HIGH && _state == LOW); 

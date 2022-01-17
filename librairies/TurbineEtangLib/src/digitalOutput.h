@@ -7,16 +7,21 @@ class digitalOutput
 {
 private:
     
-    bool _state;
+    bool _state = false;
     byte _pin;
 public:
     digitalOutput(byte pin);
     ~digitalOutput();
     void setState(bool state);
+    bool getState();;
     void loop();
     void toggle();
 
 };
+
+bool digitalOutput::getState(){
+    return _state;
+}
 void digitalOutput::setState(bool state){
     _state = state;
 }
