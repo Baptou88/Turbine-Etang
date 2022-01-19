@@ -80,13 +80,14 @@ unsigned long dernieredetectionEncodA = 0;
 bool bOuvertureTotale = false;
 bool bFermetureTotale = false;
 Message receivedMessage;
+bool newMessage = false;
 int incCodeuse = 400;
 long ouvertureMax = 2000;
 byte displayMode = 0;
 long consigneMoteur = 0;
 volatile int sensMoteur = 0;
 long posMoteur;
-bool previousEtatbutton = false;
+
 //Automate
 
 enum EtapesEcran{
@@ -299,7 +300,11 @@ void TraitementCommande(String c){
 	if (c == "DemandeStatut")
 	{
 		EnvoyerStatut = true;
+	} else
+	{
+		sendMessageConfirmation(receivedMessage.msgID);
 	}
+	
 	
 	if (c.startsWith("M"))
 	{
@@ -794,7 +799,7 @@ void onReceive(int packetSize)
 		receivedMessage.Content = "";
 		return;                             // skip rest of function
 	}
-	
+	newMessage = true;
 	//// if message is for this device, or broadcast, print details:
 	Serial.println("Received from: 0x" + String(receivedMessage.sender, HEX));
 	Serial.println("Sent to: 0x" + String(receivedMessage.recipient, HEX));
@@ -832,7 +837,7 @@ String wakeup_reason_toString(esp_sleep_wakeup_cause_t wakeup_reason){
 // the setup function runs once when you press reset or power the board
 void setup() {
 
-	Wire.begin(SDA_OLED, SCL_OLED); 
+	//Wire.begin(SDA_OLED, SCL_OLED); 
 	Heltec.begin(true, true, true, true, BAND);
 	Heltec.display->setLogBuffer(10,30);
 
@@ -902,15 +907,31 @@ void loop() {
 		
 	} else
 	{
-		if ((digitalRead(PRGButton) == LOW) && !previousEtatbutton )
-		{
-			dernierAppuibutton = millis();
+		// if ((digitalRead(PRGButton) == LOW) && !previousEtatbutton )
+		// {
+		// 	dernierAppuibutton = millis();
 			
 			
 			
 			
 
-			previousEtatbutton = true;
+		// 	previousEtatbutton = true;
+		// 	if (displayMode < 3 )
+		// 	{
+		// 		displayMode++;
+		// 	}
+		// 	else
+		// 	{
+		// 		displayMode = 0;
+		// 	}
+		// } 
+		// if (digitalRead(PRGButton) == HIGH)
+		// {
+		// 	previousEtatbutton = false;
+		// }	
+		if (PrgButton->frontDesceandant())
+		{
+			dernierAppuibutton = millis();
 			if (displayMode < 3 )
 			{
 				displayMode++;
@@ -919,11 +940,8 @@ void loop() {
 			{
 				displayMode = 0;
 			}
-		} 
-		if (digitalRead(PRGButton) == HIGH)
-		{
-			previousEtatbutton = false;
-		}	
+		}
+		
 	}
 	
 	if (millis()> dernierAppuibutton +30000)
@@ -932,11 +950,14 @@ void loop() {
 			} else
 			{
 				Heltec.display->wakeup();
+
 			}
-	if (receivedMessage.Content != "")
+
+	if (newMessage)
 	{
+		newMessage = false;
 		TraitementCommande(receivedMessage.Content);
-		receivedMessage.Content = "";
+		
 	}
 	
 	
@@ -956,6 +977,6 @@ void loop() {
 	// mise à jour des sorties
 	miseAjourSortie();
 	displayData();
-	delay(20);
+	delay(10);
 	//debugGrafcet();
 }

@@ -36,6 +36,9 @@ void sendMessage(byte destination, String outgoing)
 	LoRa.endPacket();                     // finish packet and send it
 	msgCount++;                           // increment message ID
 }
+void sendMessageConfirmation(int msgNumber, byte destination ){
+  sendMessage(destination,"ok="+(String)msgNumber);
+}
 /**
  * @brief raison du réveil
  * @param wakeup_reason description

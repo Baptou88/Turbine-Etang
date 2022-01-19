@@ -26,6 +26,7 @@ enum ELora
 };
 void sendMessage(byte destination, String outgoing);
 
+void sendMessageConfirmation(int msgNumber, byte destination = MASTER);
 class Message
 {
 public:
@@ -37,6 +38,7 @@ public:
 	int length() {
 		return this->Content.length();
 	}
+	
 	String toJson() {
 		String retour = "{ \"recipient\" : \"" + String(recipient) + "\"," +
 			"\"sender\" : \"" + String(sender) + "\"," +
