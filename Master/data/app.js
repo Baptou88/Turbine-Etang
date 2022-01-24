@@ -194,8 +194,9 @@ function maj(){
   var xhr = new XMLHttpRequest();
   xhr.onreadystatechange = function() {
     if (this.readyState == 4 && this.status == 200) {
-        //console.log(this.responseText)
-      var myObj = JSON.parse( this.responseText);
+      // console.log(this.responseText)
+      try {
+        var myObj = JSON.parse( this.responseText);
       console.log(myObj)
       for (i in myObj.boards) {
         x = document.getElementById('board-' + myObj.boards[i].localAddress)
@@ -239,6 +240,9 @@ function maj(){
           
           }
         }
+      }
+      } catch (error) {
+        
       }
       
 

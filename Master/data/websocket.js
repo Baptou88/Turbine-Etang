@@ -7,8 +7,12 @@ function initWebSocket() {
     websocket.onopen = onOpen;
     websocket.onclose = onClose;
     websocket.onmessage = onMessage;
+    websocket.onerror = onError;
 }
 
+function onError(event) {
+    console.log("Erreur" , event);
+}
 function onOpen(event) {
     console.log('Connection opened');
 }
@@ -20,19 +24,36 @@ function onClose(event) {
 
 function onMessage(event) {
     console.log('ws message:');
+    console.log(event.data);
+    try {
+        var data =JSON.parse(event.data)
+        var data2 = JSON.parse(event.data, function(key,value){
+            console.log(key,value);
+            if (key == 'confirmationReception') {
+                console.log("confirmRecep " + value);
+                x = document.getElementById('board-' +value)
+                toggleLoading(x);
+            }
+        })
+        console.log(data);
+        // if (data.hasOwnProperty("confirmationReception")) {
+        //     console.log('confreception' , data[confirmationReception]);
+        // }
+        //document.getElementById("ModeTurbine").innerHTML = data.modeTurbine.name
+        Array.from(document.getElementsByClassName("ModeTurbine")).forEach(element => {
+            element.innerHTML = data.modeTurbine.name
+        });
+        Array.from(document.getElementsByClassName("selectModeTurbine")).forEach(element => {
+            element.value = data.modeTurbine.id
+        })
+        Array.from(document.getElementsByClassName("OuvertureVanne")).forEach(element => {
+            element.innerHTML = data.OuvertureVanne
+        });
     
-    var data = JSON.parse(event.data)
-    console.log(data);
-    //document.getElementById("ModeTurbine").innerHTML = data.modeTurbine.name
-    Array.from(document.getElementsByClassName("ModeTurbine")).forEach(element => {
-        element.innerHTML = data.modeTurbine.name
-    });
-    Array.from(document.getElementsByClassName("selectModeTurbine")).forEach(element => {
-        element.value = data.modeTurbine.id
-    })
-    Array.from(document.getElementsByClassName("OuvertureVanne")).forEach(element => {
-        element.innerHTML = data.OuvertureVanne
-    });
+    } catch (e) {
+        //console.log('parse impossible');
+        
+    }
     
 }
 

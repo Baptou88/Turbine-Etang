@@ -36,7 +36,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len) {
     String msg = (char*)data;
     if (strcmp((char*)data, "toggle") == 0) {
       Serial.println("toggle");
-      notifyClients();
+      //notifyClients();
     }
     if (msg.startsWith("ModeTurbine"))
     {

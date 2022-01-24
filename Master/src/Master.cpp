@@ -25,6 +25,7 @@
 #include <AutoPID.h>
 #include <LinkedList.h>
 #include <Preferences.h>
+#include <logger.h>
 
 
 #include "TurbineEtangLib.h"
@@ -66,7 +67,8 @@ AsyncWebServer serverHTTP(80);	//80 est le port standard du protocole HTTP
 AsyncWebSocket ws("/ws");
 
 WiFiUDP ntpUDP;
-NTPClient timeClient(ntpUDP);
+const char* ntpServer = "europe.pool.ntp.org";
+NTPClient timeClient(ntpUDP,ntpServer,3600,3600);
 
 Preferences preferences;
 
@@ -91,7 +93,7 @@ LinkedListB::LinkedList<board*> *allBoard = new  LinkedListB::LinkedList<board*>
 unsigned long lastDemandeStatut = 0;
 
 EmodeTurbine modeTurbine = Manuel;
-const char* ntpServer = "pool.ntp.org";
+
 
 byte lastLoraChecked = 0;
 
@@ -162,7 +164,7 @@ enum mode{
 	normal,
 	testbutton, // TODO remove this
 };
-mode Mode = testbutton; //TODO change this
+mode Mode = initSTA; //TODO change this
 
 
 
@@ -197,7 +199,12 @@ String processor(const String& var) {
 					} else if (temp->Commands->get(j).Type == "textbox" ||temp->Commands->get(j).Type == "number")
 					{
 						retour += "<input type=\""+ temp->Commands->get(j).Type + "\" name=\""+ temp->Commands->get(j).Name + "\" value=\"" + temp->Commands->get(j).Value + "\" onchange=\"update(this,"+ "'"+temp->Commands->get(j).Action +"'+'=' +this.value)\">\n";
-					} else
+					} else if (temp->Commands->get(j).Type == "range")
+					{
+						retour += "<label for=\"timerSlider\" class=\"form-label\">"+ temp->Commands->get(j).Name + "</label>";
+						retour += "<input type=\""+ temp->Commands->get(j).Type + "\"onchange=\"update(this,"+ "'"+temp->Commands->get(j).Action +"'+'=' +this.value)\" id=\"timerSlider\" min=\"0\" max=\"100\" value=\"50\" step=\"1\" class=\"form-range\">";
+					}
+					 else
 					{
 						retour += "<p>erreur commande name="+ temp->Commands->get(j).Name +"</p>";
 					}
@@ -328,6 +335,7 @@ void InitBoard(void) {
 	TurbineBoard.AddCommand("SetMax","button","SMAX");
 	TurbineBoard.AddCommand("+1T  Vanne","button","DEGV360");
 	TurbineBoard.AddCommand("-1T  Vanne","button","DEGV-360");
+	TurbineBoard.AddCommand("% Vanne", "range","test");
 
 	
 	localboard.AddCommand("Save data", "button","SDATA");
@@ -354,6 +362,7 @@ bool saveData(void ){
 }
 void TraitementCommande(String c){
 
+	
 	if ( c == "CDATA")
 	{
 		SPIFFS.remove("/data.json");
@@ -482,9 +491,10 @@ void RouteHttpSTA() {
 		});
 	
 	serverHTTP.on("/update", HTTP_GET, [](AsyncWebServerRequest* request) {
-		Heltec.display->println(String(request->url()));
+		Heltec.display->print(String(request->url()));
 		if (request->hasParam("b") && request->hasParam("c")) {
-			
+			Heltec.display->print(" "+(String) request->getParam("b")->value().c_str());
+			Heltec.display->println(" "+(String) request->getParam("c")->value().c_str());
 			if (request->getParam("b")->value().toInt() == localAddress)
 			{
 				Serial.println("Commande pour moi");
@@ -847,12 +857,12 @@ void AffichagePixel(void){
 	strip.setBrightness(brightness);
 	strip.clear();
 	
-	int nombre = (NiveauEtang * strip.numPixels()) + 1 ;
+	int nombre = (NiveauEtang * strip.numPixels())  ;
 	//Serial.println("nombre led : " + String(nombre) + " max: " + String(strip.numPixels()));
 	for (int i = 0; i < nombre; i++)
 	{
 		
-		if (i < strip.numPixels())
+		if (i <= strip.numPixels())
 		{
 			strip.setPixelColor(i, strip.Color(0, 0, 127));
 		} else
@@ -870,10 +880,20 @@ void AffichagePixel(void){
 
 void deserializeResponse(byte board, String Response){
 	
+	
+	if (!Response.startsWith("{"))
+	{
+		Serial.println(" ce n'est pas du JSON");
+		if (Response.startsWith("ok"))
+		{
+			/* code */ //TODO
+		}
+		
+		return;
+	}
+	
+	logPrintlnV("c'est du json");
 	StaticJsonDocument<200> doc;
-
-
-
 
   // Deserialize the JSON document
   DeserializationError error = deserializeJson(doc, Response);
@@ -922,7 +942,7 @@ void deserializeResponse(byte board, String Response){
 void onReceive(int packetSize)
 {
 	if (packetSize == 0) return;          // if there's no packet, return
-
+	logPrintlnI("onreceive");
 	//// read packet header bytes:
 	receivedMessage.recipient = LoRa.read();          // recipient address
 	receivedMessage.sender = LoRa.read();            // sender address
@@ -952,15 +972,18 @@ void onReceive(int packetSize)
 	
 
 	board *test = searchBoardById(receivedMessage.sender);
-	
+	Serial.println(test->Name);
 	test->lastmessage = millis();
 	test->LastMessage = receivedMessage;
 	test->newMessage = true;
-	if (test->waitforResponse )//&& allBoard->get(1)->LastMessage.Content == "ok"
-	{
-		test->waitforResponse = false;
-		ws.textAll(test->localAddress +  ",ok");
-	}
+	//TODO Remove this attrocity
+	// if (test->waitforResponse )//&& allBoard->get(1)->LastMessage.Content == "ok"
+	// {
+	// 	logPrintlnI("en voi confirmation Reception");
+	// 	test->waitforResponse = false;
+
+	// 	logPrintlnI("confirmation Reception");
+	// }
 	
 
 	// switch (receivedMessage.sender)
@@ -975,7 +998,7 @@ void onReceive(int packetSize)
 	// 	if (allBoard->get(2)->waitforResponse )//&& allBoard->get(1)->LastMessage.Content == "ok"
 	// 	{
 	// 		allBoard->get(2)->waitforResponse = false;
-	// 		ws.textAll(allBoard->get(2)->localAddress +  ",ok");
+
 	// 	}
 		
 		
@@ -1000,7 +1023,12 @@ void onReceive(int packetSize)
 	// //Serial.println("Snr: " + String(LoRa.packetSnr()));
 	// Serial.println();
 	Heltec.display->println("0x" + String(receivedMessage.sender,HEX) + " to 0x" + String(receivedMessage.recipient, HEX) + " " + String(receivedMessage.Content));
+	logPrintlnI("mode reception");
+	
+	
 	LoRa.receive();
+	logPrintlnI("mode reception ok");
+
 }
 
 /**
@@ -1316,6 +1344,7 @@ void setup() {
 	allBoard->add(&TurbineBoard);
 	allBoard->add(&EtangBoard);
 	
+	Logger::instance().setSerial(&Serial);
 	
 	menuModeWifi.onRender([](int num, int numel,bool hover){
 		//Serial.println("onrendermodeWifi " + (String)num + (String)numel);
@@ -1338,11 +1367,10 @@ void setup() {
 	});
 	
 	Heltec.begin(true, true, true, true, BAND);
-	//InitSD();
+	// InitSD();
 	// initWifi();
 
 
-	configTime(3600, 3600, ntpServer);
 	InitBoard();
 	Heltec.display->clear();
 	if (!SPIFFS.begin(true)) {
@@ -1407,6 +1435,10 @@ void setup() {
 
 // the loop function runs over and over again until power down or reset
 void loop() {
+	if (WiFi.status() == WL_CONNECTED){
+		timeClient.update();
+	}
+	
    	acquisitionEntree();
    	handleMode();
 	AffichagePixel();
@@ -1425,7 +1457,7 @@ void loop() {
 			lastCorrectionVanne = millis();
 			//Serial.println("Correction Vanne: "+ String(correctionVanne) );
 
-			notifyClients();
+			//notifyClients();
 	}
    
 	// if ((digitalRead(PRGButton) == LOW) && !previousEtatbutton)
@@ -1452,7 +1484,24 @@ void loop() {
 		if (allBoard->get(i)->newMessage)
 		{
 			allBoard->get(i)->newMessage = false;
-			deserializeResponse(allBoard->get(i)->localAddress, allBoard->get(i)->LastMessage.Content);
+			// if (allBoard->get(i)->LastMessage.Content.startsWith("ok"))
+			// {
+			// 	allBoard->get(i)->waitforResponse = false;
+			// }
+			// else
+			// {
+				logPrintlnI("new message");
+				deserializeResponse(allBoard->get(i)->localAddress, allBoard->get(i)->LastMessage.Content);
+			// }
+			
+			if (allBoard->get(i)->waitforResponse )//&& allBoard->get(1)->LastMessage.Content == "ok"
+		{
+			logPrintlnI("en voi confirmation Reception");
+			allBoard->get(i)->waitforResponse = false;
+			
+			ws.textAll("{\"confirmationReception\" : \"" + (String) allBoard->get(i)->localAddress + "\"}");
+			logPrintlnI("confirmation Reception");
+		}
 		}
 
 		//  allBoard->get(i)->demandeStatut();
@@ -1508,11 +1557,12 @@ void loop() {
 	
 
 	//printLocalTime();
+	Serial.println(timeClient.getFormattedTime() +"  " + (String) timeClient.getEpochTime());
 	//----------------------------------------Serveur HTTP
 	
 
 	ws.cleanupClients();
 	ArduinoOTA.handle();
-	delay(20);
+	delay(100);
 	
 }

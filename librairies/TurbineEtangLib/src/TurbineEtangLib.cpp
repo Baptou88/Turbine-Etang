@@ -37,7 +37,7 @@ void sendMessage(byte destination, String outgoing)
 	msgCount++;                           // increment message ID
 }
 void sendMessageConfirmation(int msgNumber, byte destination ){
-  sendMessage(destination,"ok="+(String)msgNumber);
+  sendMessage(destination,"ok="+(String)msgNumber); //TODO
 }
 /**
  * @brief raison du réveil

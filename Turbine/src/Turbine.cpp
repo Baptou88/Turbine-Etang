@@ -24,7 +24,7 @@
 // #define FCVanneOuverte 0
 // #define FCVanneFerme 1
 // #define EPRGBUTTON 2
-digitalInput FCVanneOuverte(39,INPUT_PULLDOWN); //TODO 
+digitalInput FCVanneOuverte(39,INPUT_PULLDOWN); 
 digitalInput FCVanneFermee(38,INPUT_PULLDOWN);
 digitalInput* PrgButton= new digitalInput(PRGButton,INPUT_PULLUP);
 //sortie
@@ -303,6 +303,7 @@ void TraitementCommande(String c){
 	} else
 	{
 		sendMessageConfirmation(receivedMessage.msgID);
+		LoRa.receive();
 	}
 	
 	
@@ -875,7 +876,7 @@ void setup() {
 		maxIntensite = preferences.getLong("maxIntensite", maxIntensite);
 	}
 	
-	//TODO: essayer de changer  wire1 par wire
+
 	if (!ina260.begin(0x40, &Wire)) {
 		Heltec.display->drawString(0,24,"Couldn't find INA260 chip");
 		Serial.println("Couldn't find INA260 chip");
@@ -943,7 +944,7 @@ void loop() {
 		}
 		
 	}
-	
+	#if defined(_DEBUG)
 	if (millis()> dernierAppuibutton +30000)
 			{
 				Heltec.display->sleep();
@@ -952,6 +953,11 @@ void loop() {
 				Heltec.display->wakeup();
 
 			}
+	
+	
+	#endif // _DEBUG
+	
+	
 
 	if (newMessage)
 	{
