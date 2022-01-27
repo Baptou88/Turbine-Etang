@@ -41,7 +41,8 @@
             "unordered_set": "cpp",
             "vector": "cpp",
             "memory": "cpp",
-            "new": "cpp"
+            "new": "cpp",
+            "typeinfo": "cpp"
         }
     }
 }

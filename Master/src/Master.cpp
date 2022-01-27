@@ -34,7 +34,7 @@
 #include "MasterLib.h"
 #include "websocket.h"
 #include "connexionWifi.h"
-
+#include "ProgrammatedTask.h"
 
 
 
@@ -90,7 +90,10 @@ menu menuStationWifi(2,2,encodRight,encodLeft);
 //LinkedList<board*> allBoard = new LinkedList<board*>();
 LinkedListB::LinkedList<board*> *allBoard = new  LinkedListB::LinkedList<board*>();
 
+LinkedListB::LinkedList<ProgrammatedTask*> *ProgrammatedTasks = new LinkedListB::LinkedList<ProgrammatedTask*>();
+
 unsigned long lastDemandeStatut = 0;
+unsigned long previouscheckTask = 0;
 
 EmodeTurbine modeTurbine = Manuel;
 
@@ -277,9 +280,66 @@ String processor(const String& var) {
 		retour += "</div>";
 
 		return retour;
+	} else if (var == "ListeProgram")
+	{
+		
+		for (size_t i = 0; i < ProgrammatedTasks->size(); i++)
+		{
+			//retour += (String)ProgrammatedTasks->get(i)->name;
+			retour += "<div class=\"card border my-2 p-2\" style=\"width: auto\">\n";
+			retour += "<h5 class=\"card-title\">" + (String)ProgrammatedTasks->get(i)->name + "</h5>\n";
+			//retour += "<h3>" + (String)ProgrammatedTasks->get(i)->name + "</h3>";
+			retour += "<form  action =\"/updateprogrammateur\" method=\"post\">";
+			retour += "<div class=\"form-group\">";
+    		retour += "<label for=\"exampleFormControlInput1\">ID</label>";
+    		retour += "<input type=\"number\" class=\"form-control\" name=\"id\" id=\"exampleFormControlInput1\" placeholder=\"id\" value=\""+(String) i +"\" hidden>";
+  			retour += "</div>";
+			retour += "<div class=\"form-check form-switch\" >";
+    		retour += "<input class=\"form-check-input\" type=\"checkbox\" name=\"active\" role=\"switch\" id=\"flexSwitchCheckChecked\" " + String("\%ProgrammatedTasks" + String(i) + ":isActive\%")  + " >";
+  			retour += "<label class=\"form-check-label\" for=\"flexSwitchCheckChecked\">Checked switch checkbox input</label>";
+			retour += "</div>";
+			retour += "<label for=\"appt\">Heure du déclanchement:</label>\n";
+			retour += "<input type=\"time\" id=\"appt\" name=\"appt\"  value= \"\%ProgrammatedTasks" + String(i) + ":getHours\%" + ":" + "\%ProgrammatedTasks" + String(i) + ":getMinutes\%" +"\"  required>\n";
+			retour += "<label for=\"customRange1\" class=\"form-label\">Example range</label>";
+			retour += "<input type=\"range\" value=\"\%ProgrammatedTasks" + String(i) + ":targetVanne\%" + "\" name=\"targetVanne\" class=\"form-range\" id=\"customRange1\">";
+			retour += "<button class=\"btn btn-primary\" type=\"submit\">Mettre a jour</button>";
+			retour += "<a href=\"/programmateur/?delete="+(String) i +"\" class=\"btn btn-danger\">Supprimer</a>";
+			retour += "</form>";
+			retour += "</div>\n";
+
+		} 
+		
+		
+		return retour;
+	}else if (var.startsWith("ProgrammatedTasks"))
+	{
+		String temp = var;
+		temp.replace("ProgrammatedTasks","");
+		int separateur = temp.indexOf(":");
+		int num_tache = temp.substring(0,separateur).toInt();
+		String methode = temp.substring(separateur+1,64);
+		if (methode == "getHours")
+		{
+			return ProgrammatedTasks->get(num_tache)->getHours();
+		}
+		if (methode == "getMinutes")
+		{
+			return ProgrammatedTasks->get(num_tache)->getMinutes();
+		}
+		if (methode == "isActive")
+		{
+			return String(ProgrammatedTasks->get(num_tache)->isActive()? "checked" : "");
+		}
+		if (methode == "targetVanne")
+		{
+			return String(ProgrammatedTasks->get(num_tache)->targetVanne );
+		}
+		
+		return "erreur processing ProgrammatedTasks";
 	}
 	
-	return String();
+	
+	return String("Erreur Processeur template");
 	
 }
 JsonObject getJsonFromFile(DynamicJsonDocument *doc, String filename){
@@ -552,6 +612,84 @@ void RouteHttpSTA() {
 		
 		File file = SPIFFS.open("/index.html");
 		request->send(SPIFFS,"/index.html", "text/html", false, processor);
+		});
+	serverHTTP.on("/programmateur/new", HTTP_GET, [](AsyncWebServerRequest* request) {
+		ProgrammatedTasks->add(new ProgrammatedTask(12,12,"test ajout"));
+		
+		//request->send(SPIFFS,"/programmateur.html", "text/html", false, processor);
+		request->redirect("/programmateur");
+		});
+	
+	serverHTTP.on("/programmateur", HTTP_GET, [](AsyncWebServerRequest* request) {
+		if (request->hasParam("delete"))
+		{
+			Serial.println("suppression");
+			Serial.println(request->getParam("delete")->value().c_str());
+			ProgrammatedTasks->remove(request->getParam("delete")->value().toInt());
+			request->redirect("/programmateur")	;	
+		}
+		
+		
+		request->send(SPIFFS,"/programmateur.html", "text/html", false, processor);
+		});
+	
+	serverHTTP.on("/Programmateur.js", HTTP_GET, [](AsyncWebServerRequest* request) {
+		
+		
+		request->send(SPIFFS,"/Programmateur.js", "application/javascript");
+		});
+	serverHTTP.on("/updateprogrammateur", HTTP_POST , [](AsyncWebServerRequest* request) {
+		
+		logPrintlnI("/updateprog");
+		int params = request->params();
+		for(int i=0;i<params;i++){
+			AsyncWebParameter* p = request->getParam(i);
+			if(p->isFile()){ //p->isPost() is also true
+				Serial.printf("FILE[%s]: %s, size: %u\n", p->name().c_str(), p->value().c_str(), p->size());
+			} else if(p->isPost()){
+				Serial.printf("POST[%s]: %s\n", p->name().c_str(), p->value().c_str());
+			} else {
+				Serial.printf("GET[%s]: %s\n", p->name().c_str(), p->value().c_str());
+			}
+		}
+		//List all parameters (Compatibility)
+		int args = request->args();
+		for(int i=0;i<args;i++){
+			Serial.printf("ARG[%s]: %s\n", request->argName(i).c_str(), request->arg(i).c_str());
+		}
+		ProgrammatedTask *test;
+		if (request->hasParam("id",true))
+		{
+			test = ProgrammatedTasks->get(request->getParam("id",true)->value().toInt());
+			
+		} else
+		{
+			request->send(400);
+			return;
+		}
+		
+		if (request->hasParam("active",true))
+		{
+			test->activate();
+		} else
+		{
+			test->deactivate();
+		}
+		if (request->hasParam("appt",true))
+		{
+			int dp = request->getParam("appt",true)->value().indexOf(":");
+			Serial.println("dp " + String(dp));
+			test->h = request->getParam("appt",true)->value().substring(0,dp).toInt();
+			test->m = request->getParam("appt",true)->value().substring(dp+1,10).toInt();
+		}
+		if (request->hasParam("targetVanne",true))
+		{
+			test->targetVanne = request->getParam("targetVanne",true)->value().toInt();
+		}
+		
+		
+		
+		request->send(200,"text/json","{\"ok\":1}");
 		});
 	serverHTTP.on("/app.js", HTTP_GET, [](AsyncWebServerRequest* request) {
 		request->send(SPIFFS, "/app.js", "application/javascript");
@@ -1340,6 +1478,9 @@ void acquisitionEntree(void){
 // the setup function runs once when you press reset or power the board
 void setup() {
 	
+ProgrammatedTasks->add(new ProgrammatedTask(18,0,"test1"));
+ProgrammatedTasks->add(new ProgrammatedTask(6,30,"test2"));
+ProgrammatedTasks->get(1)->activate();
 	allBoard->add(&localboard);
 	allBoard->add(&TurbineBoard);
 	allBoard->add(&EtangBoard);
@@ -1369,7 +1510,7 @@ void setup() {
 	Heltec.begin(true, true, true, true, BAND);
 	// InitSD();
 	// initWifi();
-
+Serial.println(ProgrammatedTasks->get(0)->name);
 
 	InitBoard();
 	Heltec.display->clear();
@@ -1557,10 +1698,29 @@ void loop() {
 	
 
 	//printLocalTime();
-	Serial.println(timeClient.getFormattedTime() +"  " + (String) timeClient.getEpochTime());
+	//Serial.println(timeClient.getFormattedTime() +"  " + (String) timeClient.getEpochTime());
 	//----------------------------------------Serveur HTTP
 	
-
+	
+	if (millis()>previouscheckTask + 60000)
+	{
+		previouscheckTask = millis();
+		for (size_t i = 0; i < ProgrammatedTasks->size(); i++)
+		{
+			ProgrammatedTask *tache = ProgrammatedTasks->get(i);
+			if (tache->isActive())
+			{
+				if (timeClient.getHours() == tache->h && timeClient.getMinutes() == tache->m  )
+				{
+					Serial.println("exec Tache");
+				}
+				
+			}
+			
+		}
+		
+	}
+	
 	ws.cleanupClients();
 	ArduinoOTA.handle();
 	delay(100);
