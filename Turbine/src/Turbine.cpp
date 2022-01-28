@@ -46,7 +46,7 @@ byte msgCount = 0;
 Adafruit_INA260 ina260 = Adafruit_INA260();
 double currentValue = 0;
 unsigned long previousMesureIntensite = 0;
-int maxIntensite = 14000; //mA
+int maxIntensite = 16000; //mA
 
 String StatutVanne = "Arret";
 
@@ -376,9 +376,9 @@ void TraitementCommande(String c){
 		ouvertureMax = posMoteur;
 		preferences.putInt("ouvertureMax",ouvertureMax);
 	}
-	if (c == "SetMaxI")
+	if (c.startsWith("SetMaxI="))
 	{
-		c.remove(0,6);
+		c.replace("SetMaxI=","");
 		maxIntensite = c.toInt();
 		preferences.putInt("maxIntensite",maxIntensite);
 		
