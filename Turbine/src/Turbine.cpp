@@ -46,13 +46,12 @@ byte msgCount = 0;
 Adafruit_INA260 ina260 = Adafruit_INA260();
 double currentValue = 0;
 unsigned long previousMesureIntensite = 0;
-int maxIntensite = 8000; //mA
+int maxIntensite = 14000; //mA
 
 String StatutVanne = "Arret";
 
 Preferences preferences;
 
-unsigned long dernierAppuibutton = 0;
 
 // const int pinOuvertureVanne = 12;
 // const int pinFermetureVanne = 13;
@@ -82,6 +81,11 @@ bool bFermetureTotale = false;
 Message receivedMessage;
 bool newMessage = false;
 int incCodeuse = 400;
+
+/**
+ * @brief ouverture max en tick
+ * 
+ */
 long ouvertureMax = 2000;
 byte displayMode = 0;
 long consigneMoteur = 0;
@@ -400,6 +404,24 @@ void TraitementCommande(String c){
 		esp_sleep_enable_timer_wakeup(c.toInt()*1000);
 		esp_light_sleep_start();
 	}
+	if (c.startsWith("P="))
+	{
+		/* ouverture vanne pourcentage */
+		c.replace("P=","");
+		float cibleOuverture = c.toFloat() / 100;
+		int cibleTick = ouvertureMax * cibleOuverture;
+		consigneMoteur  =  posMoteur - cibleTick;
+		if (consigneMoteur > 0)
+		{
+			sensMoteur = 1;
+		}else
+		{
+			sensMoteur = -1;
+		}
+		
+		
+	}
+	
 	
 	
 	
@@ -684,8 +706,8 @@ void IRAM_ATTR EncodB() {
 #ifdef pinEncodB
 			Heltec.display->drawString(64, 0, "EB: " + String(countEncodB));
 #endif // pinEncodB
-			Heltec.display->drawString(0, 20, "posMoteur: " + String(posMoteur));
-			Heltec.display->drawString(40, 32, "consigne: " + String(consigneMoteur));
+			Heltec.display->drawString(0, 15, "posMoteur: " + String(posMoteur));
+			Heltec.display->drawString(0, 27, "consigne: " + String(consigneMoteur));
 			if (sensMoteur>0)
 			{
 				Heltec.display->drawString(15, 50, "->");
@@ -694,17 +716,26 @@ void IRAM_ATTR EncodB() {
 			{
 				Heltec.display->drawString(15, 50, "<-");
 			}
-			Heltec.display->drawString(25, 50, "Etape: " + String(EtapeToString( EtapeActuel)));
+			Heltec.display->drawString(0, 39, "Etape: " + String(EtapeToString( EtapeActuel)));
 		
 			Heltec.display->drawString(5, 55, FCVanneFermee.isPressed() ? "*" : "");
 			Heltec.display->drawString(110, 55, FCVanneOuverte.isPressed() ? "*" : "");
 			break;
 		case 1:
-			Heltec.display->drawString(60,0,String(posMoteur));
-			Heltec.display->drawString(100,0,String(ouvertureMax));
+			Heltec.display->drawString(0, 0, "EA: " + String(countEncodA));
+#ifdef pinEncodB
+			Heltec.display->drawString(64, 0, "EB: " + String(countEncodB));
+#endif // pinEncodB
+			Heltec.display->drawString(0,12,"posM "+String(posMoteur));
 			
-			Heltec.display->drawString(60,50,String(pPosMoteur()));
-			Heltec.display->drawProgressBar(5,30,100,10,pPosMoteur()*100);
+			Heltec.display->drawString(64,12,"Omax " + String(ouvertureMax));
+			
+			
+			Heltec.display->drawString(60,50,String(pPosMoteur())+"%");
+			
+			Heltec.display->drawProgressBar(5,30,120,10,pPosMoteur()*100);
+			Heltec.display->drawString(5, 55, FCVanneFermee.isPressed() ? "*" : "");
+			Heltec.display->drawString(110, 55, FCVanneOuverte.isPressed() ? "*" : "");
 			break;
 		case 2:
 			Heltec.display->drawLogBuffer(0,0);
@@ -853,11 +884,12 @@ void setup() {
 	// pinMode(pinOuvertureVanne, OUTPUT);
 
 	pinMode(pinEncodA, INPUT_PULLUP);
-	attachInterrupt(pinEncodA, EncodA,RISING);
+	attachInterrupt(digitalPinToInterrupt( pinEncodA), EncodA,RISING);
 
 #ifdef pinEncodB
 	pinMode(pinEncodB, INPUT_PULLUP);
-	attachInterrupt(pinEncodB, EncodB,CHANGE);
+	
+	attachInterrupt( digitalPinToInterrupt(pinEncodB) , EncodB,RISING);
 #endif // pinEncodB
 
 #ifdef pinTaqui
@@ -887,7 +919,8 @@ void setup() {
 	Heltec.display->display();
 	Serial.println("Found INA260 chip");
 
-	 
+	FCVanneFermee.loop();
+	FCVanneOuverte.loop();
 
 	delay(1000);
 
@@ -932,7 +965,7 @@ void loop() {
 		// }	
 		if (PrgButton->frontDesceandant())
 		{
-			dernierAppuibutton = millis();
+			
 			if (displayMode < 3 )
 			{
 				displayMode++;

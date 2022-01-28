@@ -396,6 +396,7 @@ void InitBoard(void) {
 	TurbineBoard.AddCommand("+1T  Vanne","button","DEGV360");
 	TurbineBoard.AddCommand("-1T  Vanne","button","DEGV-360");
 	TurbineBoard.AddCommand("% Vanne", "range","test");
+	TurbineBoard.AddCommand("maxI", "number","SetMaxI","10000");
 
 	
 	localboard.AddCommand("Save data", "button","SDATA");
