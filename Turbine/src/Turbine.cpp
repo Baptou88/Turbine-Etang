@@ -421,10 +421,10 @@ void TraitementCommande(String c){
 		
 		
 	}
-	
-	
-	
-	
+		
+
+
+
 }
 void EvolutionGraphe(void) {
 
@@ -888,8 +888,8 @@ void setup() {
 
 #ifdef pinEncodB
 	pinMode(pinEncodB, INPUT_PULLUP);
-	
-	attachInterrupt( digitalPinToInterrupt(pinEncodB) , EncodB,RISING);
+
+	attachInterrupt( digitalPinToInterrupt( pinEncodB) , EncodB,RISING);
 #endif // pinEncodB
 
 #ifdef pinTaqui
@@ -919,8 +919,8 @@ void setup() {
 	Heltec.display->display();
 	Serial.println("Found INA260 chip");
 
-	FCVanneFermee.loop();
-	FCVanneOuverte.loop();
+	 FCVanneFermee.loop();
+	 FCVanneOuverte.loop();
 
 	delay(1000);
 
@@ -966,7 +966,7 @@ void loop() {
 		if (PrgButton->frontDesceandant())
 		{
 			
-			if (displayMode < 3 )
+			if (displayMode < 4 )
 			{
 				displayMode++;
 			}
