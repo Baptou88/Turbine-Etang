@@ -201,11 +201,12 @@ String processor(const String& var) {
 
 					} else if (temp->Commands->get(j).Type == "textbox" ||temp->Commands->get(j).Type == "number")
 					{
+						retour += "<label for=\"\" class=\"form-label\">"+ temp->Commands->get(j).Name + "</label>";
 						retour += "<input type=\""+ temp->Commands->get(j).Type + "\" name=\""+ temp->Commands->get(j).Name + "\" value=\"" + temp->Commands->get(j).Value + "\" onchange=\"update(this,"+ "'"+temp->Commands->get(j).Action +"'+'=' +this.value)\">\n";
 					} else if (temp->Commands->get(j).Type == "range")
 					{
 						retour += "<label for=\"timerSlider\" class=\"form-label\">"+ temp->Commands->get(j).Name + "</label>";
-						retour += "<input type=\""+ temp->Commands->get(j).Type + "\"onchange=\"update(this,"+ "'"+temp->Commands->get(j).Action +"'+'=' +this.value)\" id=\"timerSlider\" min=\"0\" max=\"100\" value=\"50\" step=\"1\" class=\"form-range\">";
+						retour += "<input type=\""+ temp->Commands->get(j).Type + "\"onchange=\"update(this,"+ "'"+temp->Commands->get(j).Action +"'+'=' +this.value)\" id=\"timerSlider\" min=\"0\" max=\"100\" value=\""+temp->Commands->get(j).Value +"\" step=\"1\" class=\"form-range\">";
 					}
 					 else
 					{
@@ -395,7 +396,7 @@ void InitBoard(void) {
 	TurbineBoard.AddCommand("SetMax","button","SMAX");
 	TurbineBoard.AddCommand("+1T  Vanne","button","DEGV360");
 	TurbineBoard.AddCommand("-1T  Vanne","button","DEGV-360");
-	TurbineBoard.AddCommand("% Vanne", "range","test");
+	TurbineBoard.AddCommand("% Vanne", "range","test",String(OuvertureVanne));
 	TurbineBoard.AddCommand("maxI", "number","SetMaxI","10000");
 
 	

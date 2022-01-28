@@ -452,6 +452,7 @@ void EvolutionGraphe(void) {
 	Transition[19] = Etape[FermerVanne] && currentValue> maxIntensite;
 	Transition[20] = Etape[OuvertureTotale] && currentValue> maxIntensite;
 	Transition[21] = Etape[FermetureTotale] && currentValue> maxIntensite;
+	Transition[22] = Etape[StopMoteurIntensite] ;
 
 	// Desactivation des etapes
 	if (Transition[0]) Etape[Init] = 0;
@@ -476,6 +477,7 @@ void EvolutionGraphe(void) {
 	if (Transition[19]) Etape[FermerVanne] = 0;
 	if (Transition[20]) Etape[OuvertureTotale] = 0;
 	if (Transition[21]) Etape[FermetureTotale] = 0;
+	if (Transition[22]) Etape[StopMoteurIntensite] =0;
 
 	// Activation des etapes
 	if (Transition[0]) Etape[DelaiPOM] = 1;
@@ -500,6 +502,7 @@ void EvolutionGraphe(void) {
 	if (Transition[19]) Etape[StopMoteurIntensite] =1;
 	if (Transition[20]) Etape[StopMoteurIntensite] =1;
 	if (Transition[21]) Etape[StopMoteurIntensite] =1;
+	if (Transition[22]) Etape[AttenteOrdre] =1;
 
 	// Gestion des actions sur les etapes
 	/*if (Etape[START] == 1) {
@@ -614,6 +617,7 @@ void EvolutionGraphe(void) {
 		serializeJson(doc,json);
 		Serial.println(json);
 		sendMessage(MASTER, json);
+		delay(200);
 
 	}
 	if (Etape[POMO])
@@ -761,12 +765,13 @@ void IRAM_ATTR EncodB() {
 			break;
 
 		default:
+			Heltec.display->drawString(0,0,"Erreur displayData");
 			break;
 		}
 		
 	 
  	}
-	 
+	Heltec.display->drawString(120,50,(String)displayMode) ;
 	Heltec.display->display();
  }
  void debugGrafcet(void) {
@@ -941,28 +946,7 @@ void loop() {
 		
 	} else
 	{
-		// if ((digitalRead(PRGButton) == LOW) && !previousEtatbutton )
-		// {
-		// 	dernierAppuibutton = millis();
-			
-			
-			
-			
-
-		// 	previousEtatbutton = true;
-		// 	if (displayMode < 3 )
-		// 	{
-		// 		displayMode++;
-		// 	}
-		// 	else
-		// 	{
-		// 		displayMode = 0;
-		// 	}
-		// } 
-		// if (digitalRead(PRGButton) == HIGH)
-		// {
-		// 	previousEtatbutton = false;
-		// }	
+		
 		if (PrgButton->frontDesceandant())
 		{
 			
