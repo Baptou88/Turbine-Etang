@@ -108,16 +108,16 @@ public:
 		
 		
 	}
-	void sendMessage(byte destination, String outgoing)
+	void sendMessage(byte destination, String outgoing, byte sender)
 	{
 		LoRa.beginPacket();                   // start packet
 		LoRa.write(destination);              // add destination address
-		LoRa.write(localAddress);             // add sender address
-		LoRa.write(0);                 // add message ID
+		LoRa.write(sender);             // add sender address
+		LoRa.write(msgCount);                 // add message ID
 		LoRa.write(outgoing.length());        // add payload length
 		LoRa.print(outgoing);                 // add payload
 		LoRa.endPacket();                     // finish packet and send it
-		//msgCount++;                           // increment message ID
+		msgCount++;                           // increment message ID
 	}
 
 	void demandeStatut (){
@@ -125,14 +125,14 @@ public:
 		{
 			Serial.println("Classe demandestatut 0x" + String(localAddress,HEX));
 			lastDemandeStatut = millis();
-			sendMessage(localAddress, "DemandeStatut");
+			sendMessage(localAddress, "DemandeStatut",MASTER);
 			LoRa.receive();
 			waitforResponse = true;
 		}
 	}
 
 private:
-	
+	int msgCount=0;
 };
 
 struct wifiparamconnexion{

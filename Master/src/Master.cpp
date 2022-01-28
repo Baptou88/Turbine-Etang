@@ -396,7 +396,7 @@ void InitBoard(void) {
 	TurbineBoard.AddCommand("SetMax","button","SMAX");
 	TurbineBoard.AddCommand("+1T  Vanne","button","DEGV360");
 	TurbineBoard.AddCommand("-1T  Vanne","button","DEGV-360");
-	TurbineBoard.AddCommand("% Vanne", "range","test",String(OuvertureVanne));
+	TurbineBoard.AddCommand("% Vanne", "range","P",String(OuvertureVanne));
 	TurbineBoard.AddCommand("maxI", "number","SetMaxI","10000");
 
 	
@@ -1116,52 +1116,7 @@ void onReceive(int packetSize)
 	test->lastmessage = millis();
 	test->LastMessage = receivedMessage;
 	test->newMessage = true;
-	//TODO Remove this attrocity
-	// if (test->waitforResponse )//&& allBoard->get(1)->LastMessage.Content == "ok"
-	// {
-	// 	logPrintlnI("en voi confirmation Reception");
-	// 	test->waitforResponse = false;
-
-	// 	logPrintlnI("confirmation Reception");
-	// }
 	
-
-	// switch (receivedMessage.sender)
-	// {
-	// case MASTER:
-		
-	// 	break;
-	// case ETANG:
-	// 	allBoard->get(2)->lastmessage = millis();
-	// 	allBoard->get(2)->LastMessage = receivedMessage;
-	// 	allBoard->get(2)->newMessage = true;
-	// 	if (allBoard->get(2)->waitforResponse )//&& allBoard->get(1)->LastMessage.Content == "ok"
-	// 	{
-	// 		allBoard->get(2)->waitforResponse = false;
-
-	// 	}
-		
-		
-	// 	break;
-	// case TURBINE:
-	// 	allBoard->get(1)->lastmessage = millis();
-	// 	allBoard->get(1)->LastMessage = receivedMessage;
-	// 	allBoard->get(1)->newMessage = true;
-
-	// 	break;
-	// default:
-		
-	// 	break;
-	// }
-	//// if message is for this device, or broadcast, print details:
-	// Serial.println("Received from: 0x" + String(receivedMessage.sender, HEX));
-	// Serial.println("Sent to: 0x" + String(receivedMessage.recipient, HEX));
-	// Serial.println("Message ID: " + String(incomingMsgId));
-	// Serial.println("Message length: " + String(incomingLength));
-	// Serial.println("Message: " + receivedMessage.Content);
-	// Serial.println("RSSI: " + String(LoRa.packetRssi()));
-	// //Serial.println("Snr: " + String(LoRa.packetSnr()));
-	// Serial.println();
 	Heltec.display->println("0x" + String(receivedMessage.sender,HEX) + " to 0x" + String(receivedMessage.recipient, HEX) + " " + String(receivedMessage.Content));
 	logPrintlnI("mode reception");
 	
@@ -1627,24 +1582,17 @@ void loop() {
 		if (allBoard->get(i)->newMessage)
 		{
 			allBoard->get(i)->newMessage = false;
-			// if (allBoard->get(i)->LastMessage.Content.startsWith("ok"))
-			// {
-			// 	allBoard->get(i)->waitforResponse = false;
-			// }
-			// else
-			// {
-				logPrintlnI("new message");
-				deserializeResponse(allBoard->get(i)->localAddress, allBoard->get(i)->LastMessage.Content);
-			// }
+			deserializeResponse(allBoard->get(i)->localAddress, allBoard->get(i)->LastMessage.Content);
 			
+			logPrintlnI("newmessage");
 			if (allBoard->get(i)->waitforResponse )//&& allBoard->get(1)->LastMessage.Content == "ok"
-		{
-			logPrintlnI("en voi confirmation Reception");
-			allBoard->get(i)->waitforResponse = false;
+			{
+				logPrintlnI("wr");
+				allBoard->get(i)->waitforResponse = false;
+				
+				ws.textAll("{\"confirmationReception\" : \"" + (String) allBoard->get(i)->localAddress + "\"}");
 			
-			ws.textAll("{\"confirmationReception\" : \"" + (String) allBoard->get(i)->localAddress + "\"}");
-			logPrintlnI("confirmation Reception");
-		}
+			}
 		}
 
 		//  allBoard->get(i)->demandeStatut();
@@ -1667,9 +1615,10 @@ void loop() {
 		} 
 			
 		Serial.println("Demande Statut: 0x" + (String)allBoard->get(lastLoraChecked)->localAddress );
-		allBoard->get(lastLoraChecked)->sendMessage(allBoard->get(lastLoraChecked)->localAddress, "DemandeStatut");
+		allBoard->get(lastLoraChecked)->sendMessage(allBoard->get(lastLoraChecked)->localAddress, "DemandeStatut",Master); //TODO
 		allBoard->get(lastLoraChecked)->waitforResponse = true;
-		sendMessage(lastLoraChecked, "DemandeStatut");
+		
+		//sendMessage(lastLoraChecked, "DemandeStatut");
 		
 		LoRa.receive();
 		lastLoraChecked++;

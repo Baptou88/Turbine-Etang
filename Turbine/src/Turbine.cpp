@@ -121,6 +121,12 @@ enum Etapes
 	
 
 };
+void resetEncodeur(){
+	countEncodA = 0;
+	#if defined(pinEncodB)
+	countEncodB = 0;
+	#endif // pinEncodB
+}
 String EtapeToString(Etapes E) {
 	switch (E)
 	{
@@ -218,7 +224,11 @@ void asservissementMoteur() {
 	countEncodB = 0;
 }
 
-//pourcentage ouverture vanne
+/**
+ * @brief pourcentage ouverture vanne
+ * 
+ * @return float 
+ */
 float pPosMoteur(){
 	return  float(posMoteur) / float(ouvertureMax);
 }
@@ -314,6 +324,7 @@ void TraitementCommande(String c){
 	if (c.startsWith("M"))
 	{
 		c.remove(0,1);
+		resetEncodeur();
 		consigneMoteur = c.toInt();
 		if (consigneMoteur > 0)
 		{
@@ -328,6 +339,7 @@ void TraitementCommande(String c){
 	if (c.startsWith("DEGV"))
 	{
 		c.remove(0, 4);
+		resetEncodeur();
 		Serial.println(c.toInt());
 		consigneMoteur = degvanneToInc(c.toInt());
 		Serial.println(consigneMoteur);
@@ -344,6 +356,7 @@ void TraitementCommande(String c){
 	if (c.startsWith("DEG"))
 	{
 		c.remove(0, 3);
+		resetEncodeur();
 		consigneMoteur = degToInc(c.toInt());
 		Serial.println(consigneMoteur);
 		if (consigneMoteur > 0)
@@ -360,11 +373,13 @@ void TraitementCommande(String c){
 	if (c.startsWith("OT"))
 	{
 		c.remove(0, 2);
+		resetEncodeur();
 		bOuvertureTotale = true;
 	}
 	if (c.startsWith("FT"))
 	{
 		c.remove(0, 2);
+		resetEncodeur();
 		bFermetureTotale = true;
 	}
 	if (c == "SMIN")
@@ -386,6 +401,7 @@ void TraitementCommande(String c){
 	if (c == "ouvertureMax")
 	{
 		c.remove(0,12);
+		resetEncodeur();
 		ouvertureMax = c.toInt();
 		preferences.putInt("ouvertureMax",ouvertureMax);
 		
@@ -408,9 +424,10 @@ void TraitementCommande(String c){
 	{
 		/* ouverture vanne pourcentage */
 		c.replace("P=","");
+		resetEncodeur();
 		float cibleOuverture = c.toFloat() / 100;
 		int cibleTick = ouvertureMax * cibleOuverture;
-		consigneMoteur  =  posMoteur - cibleTick;
+		consigneMoteur  =    cibleTick-posMoteur;
 		if (consigneMoteur > 0)
 		{
 			sensMoteur = 1;
@@ -577,6 +594,7 @@ void EvolutionGraphe(void) {
 		sendMessage(MASTER, json);
 		LoRa.receive();
 		EnvoyerStatut = false;
+		Serial.println("Envoyet message");
 		
 	}
 	if (Etape[OuvertureTotale])
@@ -735,7 +753,9 @@ void IRAM_ATTR EncodB() {
 			Heltec.display->drawString(64,12,"Omax " + String(ouvertureMax));
 			
 			
-			Heltec.display->drawString(60,50,String(pPosMoteur())+"%");
+			Heltec.display->drawString(80,46,String(pPosMoteur()*100)+"%");
+			Heltec.display->drawString(0, 46, "consigne: " + String(consigneMoteur));
+			Heltec.display->drawString(5+((posMoteur+consigneMoteur)*120) /2000, 42, "^");
 			
 			Heltec.display->drawProgressBar(5,30,120,10,pPosMoteur()*100);
 			Heltec.display->drawString(5, 55, FCVanneFermee.isPressed() ? "*" : "");
@@ -832,7 +852,7 @@ void onReceive(int packetSize)
 	// if the recipient isn't this device or broadcast,
 	if (receivedMessage.recipient != localAddress && receivedMessage.recipient != 0xFF)
 	{
-		Serial.println("This message is not for me.");
+		Serial.println("This message is not for me. " + String(receivedMessage.recipient));
 		receivedMessage.Content = "";
 		return;                             // skip rest of function
 	}
