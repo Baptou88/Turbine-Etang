@@ -136,8 +136,8 @@ document.addEventListener('DOMContentLoaded', function () {
 function update(element, action) {
   console.log("update",element,action)
  
-  board = element.parentElement.parentElement.id
-  toggleLoading(element.parentElement.parentElement)
+  board = element.parentElement.parentElement.parentElement.id
+  toggleLoading(element.parentElement.parentElement.parentElement)
   board = board.replace("board-","")
   var xhr = new XMLHttpRequest();
   xhr.onreadystatechange = function() {

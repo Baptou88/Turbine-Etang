@@ -186,7 +186,9 @@ String processor(const String& var) {
 		
 		for (byte i = 0; i < allBoard->size(); i = i + 1) {
 			retour += "<div class=\"card mb-2\" id=\"board-"+ String(allBoard->get(i)->localAddress) + "\">\n";
+			retour += "<div class=\"card-header\">";
 			retour += "<h4 class= \"card-title\">" + String(allBoard->get(i)->Name) + " <span class=\"text-muted\"> " + String(allBoard->get(i)->localAddress, HEX) +   " " + String(allBoard->get(i)->isConnected()) + "</span></h4>\n";
+			retour += "</div>";
 			retour += "<div class=\"spinner-border\" role=\"status\" style=\"display:none\">\n<span class=\"visually-hidden\">Loading...</span>\n</div>";
 			retour += "<div class = \"card-body\">\n";
 			//retour += "<h5>LastMessage: </h5><div class=\"message\">" + allBoard->get(i)->LastMessage.Content + "</div>\n";
@@ -197,18 +199,28 @@ String processor(const String& var) {
 				{
 					if (temp->Commands->get(j).Type == "button")
 					{
-						retour += "<input type=\""+ temp->Commands->get(j).Type + "\" name=\""+ temp->Commands->get(j).Name + "\" value=\"" + temp->Commands->get(j).Name + "\" onclick=\"update(this,"+ "'"+temp->Commands->get(j).Action +"')\">\n";
+						retour += "<input class=\"btn btn-outline-dark m-1\" type=\""+ temp->Commands->get(j).Type + "\" name=\""+ temp->Commands->get(j).Name + "\" value=\"" + temp->Commands->get(j).Name + "\" onclick=\"update(this,"+ "'"+temp->Commands->get(j).Action +"')\">\n";
 
 					} else if (temp->Commands->get(j).Type == "textbox" ||temp->Commands->get(j).Type == "number")
 					{
-						retour += "<label for=\"\" class=\"form-label\">"+ temp->Commands->get(j).Name + "</label>";
-						retour += "<input type=\""+ temp->Commands->get(j).Type + "\" name=\""+ temp->Commands->get(j).Name + "\" value=\"" + temp->Commands->get(j).Value + "\" onchange=\"update(this,"+ "'"+temp->Commands->get(j).Action +"'+'=' +this.value)\">\n";
+						retour += "<div class=\"form-floating mb-3\">\n";
+						retour += "\t<input class=\"form-control\" type=\""+ temp->Commands->get(j).Type + "\" name=\""+ temp->Commands->get(j).Name + "\" value=\"" + temp->Commands->get(j).Value + "\" onchange=\"update(this,"+ "'"+temp->Commands->get(j).Action +"'+'=' +this.value)\">\n";
+						retour += "\t<label for=\"\" class=\"form-label\">"+ temp->Commands->get(j).Name + "</label>\n";
+						retour += "</div>\n";
 					} else if (temp->Commands->get(j).Type == "range")
 					{
-						retour += "<label for=\"timerSlider\" class=\"form-label\">"+ temp->Commands->get(j).Name + "</label>";
-						retour += "<input type=\""+ temp->Commands->get(j).Type + "\"onchange=\"update(this,"+ "'"+temp->Commands->get(j).Action +"'+'=' +this.value)\" id=\"timerSlider\" min=\"0\" max=\"100\" value=\""+temp->Commands->get(j).Value +"\" step=\"1\" class=\"form-range\">";
+						retour += "<div class=\"input-group mb-3\">\n";
+						retour += "\t<label for=\"timerSlider\" class=\"form-label\">"+ temp->Commands->get(j).Name + "</label>\n";
+						retour += "\t<input type=\""+ temp->Commands->get(j).Type + "\" onchange=\"update(this,"+ "'"+temp->Commands->get(j).Action +"'+'=' +this.value)\" id=\"timerSlider\" min=\"0\" max=\"100\" value=\""+temp->Commands->get(j).Value +"\" step=\"1\" class=\"form-range\">\n";
+						retour += "</div>\n";
 					}
-					 else
+					else if (temp->Commands->get(j).Type == "progress")
+					{
+					retour += "<div class=\"progress\">\n";
+					retour += "\t<div class=\"progress-bar w\" style=\"width: "+ temp->Commands->get(j).Value +"\" role=\"progressbar\" aria-valuenow=\"75\" aria-valuemin=\"0\" aria-valuemax=\"100\"></div>\n";
+					retour += "</div>\n";
+					} else
+					 
 					{
 						retour += "<p>erreur commande name="+ temp->Commands->get(j).Name +"</p>";
 					}
@@ -262,7 +274,7 @@ String processor(const String& var) {
 	} else if (var == "ModeTurbine")
 	{
 		
-		retour += "<select class=\"selectModeTurbine\" name=\"text\" onchange=\"sendws('ModeTurbine=' + this.value);\">";
+		retour += "<select class=\"selectModeTurbine  form-select w-50\" name=\"text\" onchange=\"sendws('ModeTurbine=' + this.value);\">";
 		
 		for (size_t i = Manuel	; i <= Auto; i++)
 		{
@@ -397,13 +409,14 @@ void InitBoard(void) {
 	TurbineBoard.AddCommand("+1T  Vanne","button","DEGV360");
 	TurbineBoard.AddCommand("-1T  Vanne","button","DEGV-360");
 	TurbineBoard.AddCommand("% Vanne", "range","P",String(OuvertureVanne));
-	TurbineBoard.AddCommand("maxI", "number","SetMaxI","10000");
+	TurbineBoard.AddCommand("Max Intensité Moteur (mA)", "number","SetMaxI","10000");
+	TurbineBoard.AddCommand("Ouverture Vanne", "progress","",String(OuvertureVanne));
 
 	
 	localboard.AddCommand("Save data", "button","SDATA");
 	localboard.AddCommand("ClearData", "button", "CDATA");
 	localboard.AddCommand("Save data","button","SDATA2");
-	localboard.AddCommand("Intervalle msg", "number","ITMSG",String(intervalleEnvoi));
+	localboard.AddCommand("Intervalle msg (ms)", "number","ITMSG",String(intervalleEnvoi));
 }
 bool saveData(void ){
 	DynamicJsonDocument doc(100000);

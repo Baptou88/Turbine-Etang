@@ -42,7 +42,8 @@
             "vector": "cpp",
             "memory": "cpp",
             "new": "cpp",
-            "typeinfo": "cpp"
+            "typeinfo": "cpp",
+            "cstdlib": "cpp"
         }
     }
 }
