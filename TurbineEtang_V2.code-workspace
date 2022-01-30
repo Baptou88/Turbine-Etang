@@ -17,6 +17,10 @@
         },
         {
             "path": "librairies\\TurbineEtangLib"
+        },
+        {
+            "name": "Radiateur",
+            "path": "Radiateur"
         }
     ],
     "settings": {

@@ -79,6 +79,8 @@ board EtangBoard("Etang", ETANG);
 
 board TurbineBoard("Turbine", TURBINE);
 
+board RadiateurBoard("Radiateur", Radiateur);
+
 //board *allBoard[3] = {  &localboard, &EtangBoard , &TurbineBoard};
 String  modeWifi[] = {"AP", "STA","ScanWifi"};
 
@@ -1444,6 +1446,7 @@ ProgrammatedTasks->get(1)->activate();
 	allBoard->add(&localboard);
 	allBoard->add(&TurbineBoard);
 	allBoard->add(&EtangBoard);
+	allBoard->add(&RadiateurBoard);
 	
 	Logger::instance().setSerial(&Serial);
 	
@@ -1560,7 +1563,7 @@ void loop() {
 				
 				allBoard->get(i)->waitforResponse = false;
 				
-				//ws.textAll("{\"confirmationReception\" : \"" + (String) allBoard->get(i)->localAddress + "\"}");
+				ws.textAll("{\"confirmationReception\" : \"" + (String) allBoard->get(i)->localAddress + "\"}");
 			
 			}
 		}

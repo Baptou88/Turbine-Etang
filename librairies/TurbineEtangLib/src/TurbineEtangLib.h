@@ -17,12 +17,15 @@
 #define MASTER 0xA
 #define TURBINE 0xB
 #define ETANG 0xC
+#define RADIATEUR 0xD
 
+#define DEFAULTSF 7
 enum ELora
 {
 	Master = 0xA,
+	Turbine = 0xB,
 	Etang = 0xC,
-	Turbine = 0xB
+	Radiateur = 0xD
 };
 void sendMessage(byte destination, String outgoing);
 

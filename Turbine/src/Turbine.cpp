@@ -957,7 +957,7 @@ void setup() {
 	// forçage de l'étape initiale
 	Etape[Init] = 1;
 
-	LoRa.setSpreadingFactor(8);
+	LoRa.setSpreadingFactor(DEFAULTSF);
 	LoRa.setSyncWord(0x12);
 	LoRa.setSignalBandwidth(125E3);
 
