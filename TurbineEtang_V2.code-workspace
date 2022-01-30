@@ -13,15 +13,18 @@
             "path": "Turbine"
         },
         {
+            "name": "Radiateur",
+            "path": "Radiateur"
+        },
+        {
+            "name": "librairies",
             "path": "librairies"
         },
         {
+            "name": "TurbineEtangLib",
             "path": "librairies\\TurbineEtangLib"
-        },
-        {
-            "name": "Radiateur",
-            "path": "Radiateur"
         }
+        
     ],
     "settings": {
         "files.associations": {

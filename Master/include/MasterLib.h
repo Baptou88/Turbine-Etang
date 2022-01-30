@@ -44,7 +44,7 @@ public:
 	}
 	String Name;
 	byte localAddress;
-
+	String msgToSend = "";
 
 	/**
 	 * @brief indique le millis du dernier message recu

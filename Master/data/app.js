@@ -137,7 +137,8 @@ function update(element, action) {
   console.log("update",element,action)
  
   board = element.parentElement.parentElement.parentElement.id
-  toggleLoading(element.parentElement.parentElement.parentElement)
+  //toggleLoading(element.parentElement.parentElement.parentElement)
+  setLoading(element.parentElement.parentElement.parentElement,true)
   board = board.replace("board-","")
   var xhr = new XMLHttpRequest();
   xhr.onreadystatechange = function() {
@@ -169,7 +170,18 @@ function updateb(board, action) {
 }
 function updateSleep(board, mode) {
   SleepTime = document.getElementById("SleepTime").value;
-  updateb(board,mode + "Sleep=" + SleepTime)
+  //updateb(board,mode + "Sleep=" + SleepTime)
+  var xhr = new XMLHttpRequest();
+  xhr.onreadystatechange = function() {
+      if (this.readyState == 4 && this.status == 200) {
+          console.log(this.responseText)
+
+      } else{
+          //console.log (this.status)
+      }
+  }
+  xhr.open("GET", "/update?b=" + board + "&" + mode + "Sleep=" + SleepTime, true);
+  xhr.send();
 }
 
 /**
@@ -183,6 +195,15 @@ function toggleLoading(el){
     spinner.style.display = "block";
   } else {
     spinner.style.display = "none";
+  }
+}
+function setLoading(el, state) {
+  spinner = el.querySelector(".spinner-border")
+  if (state) {
+    spinner.style.display = "block";
+  } else {
+    spinner.style.display = "none";
+  
   }
 }
 
@@ -229,7 +250,8 @@ function maj(){
           var x = (new Date()).getTime()
           
           var yn = message.Ouverture * 100
-
+          var barProgress = document.querySelector(".progress-bar")
+          barProgress.style.width = yn + '%'
             //ajout donnée niveau dans graph
           if (chartniveautests.series[1].data.length > 40 ) {
             //chartniveau.series[0].addPoint([x, yn],true ,true,true);

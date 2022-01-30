@@ -570,7 +570,7 @@ void RouteHttpSTA() {
 		});
 	
 	serverHTTP.on("/update", HTTP_GET, [](AsyncWebServerRequest* request) {
-		Heltec.display->print(String(request->url()));
+		Heltec.display->println(String(request->url()));
 		if (request->hasParam("b") && request->hasParam("c")) {
 			Heltec.display->print(" "+(String) request->getParam("b")->value().c_str());
 			Heltec.display->println(" "+(String) request->getParam("c")->value().c_str());
@@ -588,9 +588,19 @@ void RouteHttpSTA() {
 			
 			request->send(200, "text/plain", "J'ai recu: b=" + request->getParam("b")->value() + " et c: " + request->getParam("c")->value() );
 			
-		} else if (request->hasParam("DeepSleep"))
+		} else if (request->hasParam("b") && request->hasParam("DeepSleep"))
 		{
+			for (size_t i = 1; i < allBoard->size(); i++)
+			{
+				board* test = allBoard->get(i);
+				if (request->getParam("b")->value().toInt() == test->localAddress || request->getParam("b")->value().toInt() == 0xff)
+				{
+					test->msgToSend += "DeepSleep=" + (String)request->getParam("DeepSleep")->value().c_str();
+				}
+				
+			}
 			
+			request->send(200,"text/plain","ok pour un sommeil");
 		}
 		
 		
@@ -1567,6 +1577,14 @@ void loop() {
 			
 			}
 		}
+		if (allBoard->get(i)->msgToSend != "")
+		{
+			logPrintlnW("Envoi "+ (String) allBoard->get(i)->localAddress + " "+ (String) allBoard->get(i)->msgToSend );
+			sendMessage(allBoard->get(i)->localAddress,allBoard->get(i)->msgToSend );
+			allBoard->get(i)->msgToSend = "";
+			delay(200);
+		}
+		
 
 		//  allBoard->get(i)->demandeStatut();
 		//  LoRa.receive();

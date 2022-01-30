@@ -2,7 +2,16 @@
 #include <heltec.h>
 #include <Adafruit_INA219.h>
 
+
+
+
 #include "TurbineEtangLib.h"
+
+
+
+
+
+
 
 
 Message receivedMessage;
@@ -67,6 +76,7 @@ void setup() {
     while (1) { delay(10); }
   }
 
+
 }
 
 void loop() {
@@ -82,6 +92,9 @@ void loop() {
   Heltec.display->clear();
   Heltec.display->drawString(0,0,(String)current_mA);
   Heltec.display->display();
+  
+
+
   
   delay(100);
 }

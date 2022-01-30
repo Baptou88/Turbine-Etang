@@ -32,7 +32,8 @@ function onMessage(event) {
             if (key == 'confirmationReception') {
                 console.log("confirmRecep " + value);
                 x = document.getElementById('board-' +value)
-                toggleLoading(x);
+                // toggleLoading(x);
+                setLoading(x,false)
             }
         })
         console.log(data);
