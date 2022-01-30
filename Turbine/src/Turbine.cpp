@@ -540,6 +540,7 @@ void EvolutionGraphe(void) {
 
 	if (Etape[AttenteOrdre] == 1)
 	{
+		//LoRa.receive();
 		startTempo(1,10000);
 		EtapeActuel = AttenteOrdre;
 		if (Serial.available())
@@ -635,6 +636,7 @@ void EvolutionGraphe(void) {
 		serializeJson(doc,json);
 		Serial.println(json);
 		sendMessage(MASTER, json);
+		LoRa.receive();
 		delay(200);
 
 	}
@@ -902,7 +904,7 @@ void setup() {
 
 	// pinMode(pinFCVanneFermee, INPUT_PULLDOWN );
 	// pinMode(pinFCVanneOuverte, INPUT_PULLDOWN);
-
+	
 
 //encodeurs
 	// pinMode(pinFermetureVanne, OUTPUT);
@@ -954,6 +956,11 @@ void setup() {
 	InitTableau();
 	// forçage de l'étape initiale
 	Etape[Init] = 1;
+
+	LoRa.setSpreadingFactor(8);
+	LoRa.setSyncWord(0x12);
+	LoRa.setSignalBandwidth(125E3);
+
 	LoRa.onReceive(onReceive);
 	LoRa.receive();
 

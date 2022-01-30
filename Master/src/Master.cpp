@@ -142,7 +142,7 @@ Adafruit_NeoPixel strip = Adafruit_NeoPixel(8, 32, NEO_GRB + NEO_KHZ800);
 
 //pid vanne
 AutoPID myPID(&pidNiveauEtang, &setpoint, &correctionVanne, pidOuvertureMaxVanne, pidOuvertureVanne, 1, .5, 0.5);
-unsigned long lastCorrectionVanne = 0;
+
 
 
 //sauvegarde des données
@@ -199,7 +199,9 @@ String processor(const String& var) {
 				{
 					if (temp->Commands->get(j).Type == "button")
 					{
+						retour += "<div>";
 						retour += "<input class=\"btn btn-outline-dark m-1\" type=\""+ temp->Commands->get(j).Type + "\" name=\""+ temp->Commands->get(j).Name + "\" value=\"" + temp->Commands->get(j).Name + "\" onclick=\"update(this,"+ "'"+temp->Commands->get(j).Action +"')\">\n";
+						retour += "</div>";
 
 					} else if (temp->Commands->get(j).Type == "textbox" ||temp->Commands->get(j).Type == "number")
 					{
@@ -736,7 +738,7 @@ void RouteHttpSTA() {
 		request->send(SPIFFS, "/websocket.js", "application/javascript");
 	});
 	Serial.println("Configuration Route ok");
-	delay(1000);
+	
 	
 }
 
@@ -988,6 +990,7 @@ void displayData(void) {
 
 		break;
 	default:
+		Heltec.display->drawString(0,0,"erreur indice affichage");
 		break;
 	}
 	
@@ -1130,12 +1133,12 @@ void onReceive(int packetSize)
 	test->LastMessage = receivedMessage;
 	test->newMessage = true;
 	
-	Heltec.display->println("0x" + String(receivedMessage.sender,HEX) + " to 0x" + String(receivedMessage.recipient, HEX) + " " + String(receivedMessage.Content));
-	logPrintlnI("mode reception");
+	Heltec.display->println("0x" + String(receivedMessage.sender,HEX) + " to 0x" + String(receivedMessage.recipient, HEX) );
 	
 	
-	LoRa.receive();
-	logPrintlnI("mode reception ok");
+	
+	
+	
 
 }
 
@@ -1193,7 +1196,7 @@ void  initWifi(void)
 		Serial.println(".local");
 		
 	}
-	delay(1000);
+
 	
 }
 
@@ -1210,7 +1213,7 @@ void InitSD(void) {
 		Serial.println("Card Mount Failed");
 		Heltec.display->drawString(0, 10, "Card Mount Failed");
 		Heltec.display->display();
-		delay(2000);
+		delay(200);
 		return;
 	}
 	else
@@ -1218,7 +1221,7 @@ void InitSD(void) {
 		Heltec.display->drawString(0, 10, "Card Mount ok");
 	}
 	Heltec.display->display();
-	delay(2000);
+	delay(200);
 
 }
 
@@ -1277,14 +1280,13 @@ void handleMode(){
 		initWebSocket();
 		RouteHttpSTA();
 
-		delay(1000);
+		delay(200);
 		Mode = mode::normal;
 		break;
 	case mode::initSoftAP:
 		Serial.println("ok1");
 		Heltec.display->clear();
 		Heltec.display->drawString(0,0,"mode AP");
-		//TODO: 
 		WiFi.disconnect();
 		
 		Serial.println("ok");
@@ -1302,7 +1304,7 @@ void handleMode(){
 		displayData();
 		if (prgButton->frontMontant())
 			{
-				if (displayMode < 5 )
+				if (displayMode < 6 )
 			{
 				displayMode++;
 			}
@@ -1323,18 +1325,6 @@ void handleMode(){
 		
 		menuStationWifi.loop();
 		menuStationWifi.render();
-
-		//int decalage ;
-   		 //decalage = 14;
-		// for (size_t i = 0; i < menuStationWifi.maxRow; i++)
-		// {
-		// 	Heltec.display->drawString(10,i*12+decalage,wifiParams[i+menuStationWifi.first].SSID);
-		// 	if (menuStationWifi.select == i+menuStationWifi.first)
-		// 	{
-		// 		//Heltec.display->fillRect(2,i*12+2,8,8);
-		// 		Heltec.display->fillCircle(6,i*12+decalage+6,3);
-		// 	}
-		// }
 		
 		if (prgButton->frontDesceandant())
 		{
@@ -1480,9 +1470,8 @@ ProgrammatedTasks->get(1)->activate();
 	Heltec.begin(true, true, true, true, BAND);
 	// InitSD();
 	// initWifi();
-Serial.println(ProgrammatedTasks->get(0)->name);
 
-	InitBoard();
+	
 	Heltec.display->clear();
 	if (!SPIFFS.begin(true)) {
 		Serial.println("SPIFFS Mount Failed");
@@ -1499,7 +1488,7 @@ Serial.println(ProgrammatedTasks->get(0)->name);
 		
 		intervalleEnvoi = preferences.getInt("intervalleEnvoi",intervalleEnvoi);
 	}
-
+	InitBoard();
 	Heltec.display->display();
 	pinMode(25, OUTPUT);
 
@@ -1507,19 +1496,21 @@ Serial.println(ProgrammatedTasks->get(0)->name);
 	
 	paramWifi = wifiParams[defaultConnectWifi];
 	
-
+	LoRa.setSpreadingFactor(8);
+	LoRa.setSyncWord(0x12);
+	LoRa.setSignalBandwidth(125E3);
 	LoRa.onReceive(onReceive);
 	
 	LoRa.receive();
 
 	Serial.println("Heltec.LoRa init succeeded.");
-	delay(1000);
+	delay(200);
 	Heltec.display->clear();
 	Heltec.display->flipScreenVertically();
 	Heltec.display->setLogBuffer(5, 100);
 
 	
-
+	
 
 	strip.begin();
   	strip.setBrightness(20);
@@ -1532,15 +1523,9 @@ Serial.println(ProgrammatedTasks->get(0)->name);
 	
 
 	//battery power
+	//adcAttachPin(13);
+	//analogSetClockDiv(255); // 1338mS
 	
-	
-	adcAttachPin(13);
-	analogSetClockDiv(255); // 1338mS
-	
-	// Heltec.display->clear();
-	// Heltec.display->drawString(20,20,String(allBoard->size()));
-	// Heltec.display->display();
-	// delay(5000);
 	
 }
 
@@ -1558,36 +1543,8 @@ void loop() {
 
 
    
+	//gestionPower();
    
-	gestionPower();
-   
-	//printLocalTime();
-	if (millis()> lastCorrectionVanne + 5000)
-	{
-			//Serial.println("mesure: "+ String(NiveauEtang ) );
-			lastCorrectionVanne = millis();
-			//Serial.println("Correction Vanne: "+ String(correctionVanne) );
-
-			//notifyClients();
-	}
-   
-	// if ((digitalRead(PRGButton) == LOW) && !previousEtatbutton)
-	// {
-	// 	previousEtatbutton = true;
-	// 	if (displayMode < 5 )
-	// 	{
-	// 		displayMode++;
-	// 	}
-	// 	else
-	// 	{
-	// 		displayMode = 0;
-	// 	}
-	// }
-	// if (digitalRead(PRGButton) == HIGH)
-	// {
-	// 	previousEtatbutton = false;
-	// }
-	//displayData();
 
 	for (size_t i = 1; i < allBoard->size(); i++)
 	{
@@ -1597,13 +1554,13 @@ void loop() {
 			allBoard->get(i)->newMessage = false;
 			deserializeResponse(allBoard->get(i)->localAddress, allBoard->get(i)->LastMessage.Content);
 			
-			logPrintlnI("newmessage");
+			
 			if (allBoard->get(i)->waitforResponse )//&& allBoard->get(1)->LastMessage.Content == "ok"
 			{
-				logPrintlnI("wr");
+				
 				allBoard->get(i)->waitforResponse = false;
 				
-				ws.textAll("{\"confirmationReception\" : \"" + (String) allBoard->get(i)->localAddress + "\"}");
+				//ws.textAll("{\"confirmationReception\" : \"" + (String) allBoard->get(i)->localAddress + "\"}");
 			
 			}
 		}
@@ -1628,7 +1585,7 @@ void loop() {
 		} 
 			
 		Serial.println("Demande Statut: 0x" + (String)allBoard->get(lastLoraChecked)->localAddress );
-		allBoard->get(lastLoraChecked)->sendMessage(allBoard->get(lastLoraChecked)->localAddress, "DemandeStatut",Master); //TODO
+		allBoard->get(lastLoraChecked)->sendMessage(allBoard->get(lastLoraChecked)->localAddress, "DemandeStatut",Master); 
 		allBoard->get(lastLoraChecked)->waitforResponse = true;
 		
 		//sendMessage(lastLoraChecked, "DemandeStatut");
@@ -1643,50 +1600,40 @@ void loop() {
 	
 	
 	static uint32_t previousMillis = 0;
-  // if WiFi is down, try reconnecting every CHECK_WIFI_TIME seconds
-  if ((WiFi.status() != WL_CONNECTED) && (millis() - previousMillis >= 30000)) {
-    Serial.print(millis());
-    Serial.println("Reconnecting to WiFi...");
-    WiFi.disconnect();
-    WiFi.reconnect();
-    previousMillis = millis();
-  }
-	
-	
-
-	if (millis()> lastSaveData + 30000)
-	{
-		lastSaveData = millis();
-		//saveData();
+	// if WiFi is down, try reconnecting every CHECK_WIFI_TIME seconds
+	if ((WiFi.status() != WL_CONNECTED) && (millis() - previousMillis >= 30000)) {
+		Serial.print(millis());
+		Serial.println("Reconnecting to WiFi...");
+		WiFi.disconnect();
+		WiFi.reconnect();
+		previousMillis = millis();
 	}
 	
 
-	//printLocalTime();
-	//Serial.println(timeClient.getFormattedTime() +"  " + (String) timeClient.getEpochTime());
-	//----------------------------------------Serveur HTTP
 	
+
 	
-	if (millis()>previouscheckTask + 60000)
-	{
-		previouscheckTask = millis();
-		for (size_t i = 0; i < ProgrammatedTasks->size(); i++)
-		{
-			ProgrammatedTask *tache = ProgrammatedTasks->get(i);
-			if (tache->isActive())
-			{
-				if (timeClient.getHours() == tache->h && timeClient.getMinutes() == tache->m  )
-				{
-					Serial.println("exec Tache");
-				}
+	// if (millis()>previouscheckTask + 60000)
+	// {
+	// 	previouscheckTask = millis();
+	// 	for (size_t i = 0; i < ProgrammatedTasks->size(); i++)
+	// 	{
+	// 		ProgrammatedTask *tache = ProgrammatedTasks->get(i);
+	// 		if (tache->isActive())
+	// 		{
+	// 			if (timeClient.getHours() == tache->h && timeClient.getMinutes() == tache->m  )
+	// 			{
+	// 				Serial.println("exec Tache");
+	// 			}
 				
-			}
+	// 		}
 			
-		}
+	// 	}
 		
-	}
+	// }
 	
 	ws.cleanupClients();
-	ArduinoOTA.handle();
-	delay(100);
-	
+	//ArduinoOTA.handle();
+
+	delay(10);
 }

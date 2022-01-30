@@ -148,7 +148,7 @@ void menu::render(){
   {
     if (clbkrender != NULL)
     {
-      if (select == i + first) // TODO change this
+      if (select == i + first) 
       {
         clbkrender(i,i+first,true);
       }else

@@ -13,8 +13,8 @@
 #include <ArduinoJson.h>
 #include <Adafruit_BMP280.h>
 #include <Adafruit_INA219.h>
-#include <esp_adc_cal.h>
-#include <driver/adc.h>
+// #include <esp_adc_cal.h>
+// #include <driver/adc.h>
 
 
 #define PRGButton 0
@@ -29,7 +29,7 @@ Adafruit_BMP280 bmp; // I2C
 Adafruit_INA219 ina;
 
 // battery reader
-esp_adc_cal_characteristics_t *adc_chars;
+//esp_adc_cal_characteristics_t *adc_chars;
 uint16_t voltage;
 #define DEFAULT_VREF            1100    // Default VREF use if no e-fuse calibration
 #define VBATT_SAMPLE            500     // Battery sample rate in ms
@@ -52,6 +52,7 @@ long timingBudget = 180000;
 bool previousEtatButton = false;
 
 Message receivedMessage;
+bool newMessage = false ;
 
 int NiveauEtang = 0;
 unsigned long previousMesure = 0;
@@ -286,6 +287,7 @@ void EnvoyerMsgStatut(void){
 	
 	sendMessage(0x0A, json);
 	LoRa.receive();
+	Serial.println("message envoyé");
 }
 void EvolutionGraphe(void) {
 
@@ -398,15 +400,17 @@ void EvolutionGraphe(void) {
 
 void mesureSysteme(void)
 {
-	if (millis() - previousMesure > 500)
+	if (millis() - previousMesure > 1000)
 	{
-		
+		Serial.println("debut mesure");
 		previousMesure = millis();
 		vl53l1x.read();
 		
 		temp = bmp.readTemperature();
 		pressure = bmp.readPressure();
+		Serial.println("      mesure");
 		NiveauEtang = vl53l1x.ranging_data.range_mm;
+		Serial.println("fin   mesure");
 	}
 	
 
@@ -534,110 +538,111 @@ void onReceive(int packetSize)
 	Serial.println();
 	Heltec.display->println("0x" + String(receivedMessage.sender,HEX) + " to 0x" + String(receivedMessage.recipient, HEX) + " " + String(receivedMessage.Content));
 
-	TraitementCommande(receivedMessage.Content);
+	newMessage = true;
+	
 }
 
 // Poll the proper ADC for VBatt on Heltec Lora 32 with GPIO21 toggled
-uint16_t ReadVBatt() {
-	uint16_t reading = 666;
+// uint16_t ReadVBatt() {
+// 	uint16_t reading = 666;
 
-	digitalWrite(VBATT_GPIO, LOW);              // ESP32 Lora v2.1 reads on GPIO37 when GPIO21 is low
-	delay(ADC_READ_STABILIZE);                  // let GPIO stabilize
-	#if (defined(HELTEC_V2_1))
-	pinMode(ADC1_CHANNEL_1, OPEN_DRAIN);        // ADC GPIO37
-	reading = adc1_get_raw(ADC1_CHANNEL_1);
-	pinMode(ADC1_CHANNEL_1, INPUT);             // Disconnect ADC before GPIO goes back high so we protect ADC from direct connect to VBATT (i.e. no divider)
-	#else
-	pinMode(ADC2_CHANNEL_4, OPEN_DRAIN);        // ADC GPIO13
-	adc2_get_raw(ADC2_CHANNEL_4,ADC_WIDTH_BIT_12,&reading);
-	pinMode(ADC2_CHANNEL_4, INPUT);             // Disconnect ADC before GPIO goes back high so we protect ADC from direct connect to VBATT (i.e. no divider
-	#endif
+// 	digitalWrite(VBATT_GPIO, LOW);              // ESP32 Lora v2.1 reads on GPIO37 when GPIO21 is low
+// 	delay(ADC_READ_STABILIZE);                  // let GPIO stabilize
+// 	#if (defined(HELTEC_V2_1))
+// 	pinMode(ADC1_CHANNEL_1, OPEN_DRAIN);        // ADC GPIO37
+// 	reading = adc1_get_raw(ADC1_CHANNEL_1);
+// 	pinMode(ADC1_CHANNEL_1, INPUT);             // Disconnect ADC before GPIO goes back high so we protect ADC from direct connect to VBATT (i.e. no divider)
+// 	#else
+// 	pinMode(ADC2_CHANNEL_4, OPEN_DRAIN);        // ADC GPIO13
+// 	adc2_get_raw(ADC2_CHANNEL_4,ADC_WIDTH_BIT_12,&reading);
+// 	pinMode(ADC2_CHANNEL_4, INPUT);             // Disconnect ADC before GPIO goes back high so we protect ADC from direct connect to VBATT (i.e. no divider
+// 	#endif
 
-	uint16_t voltage = esp_adc_cal_raw_to_voltage(reading, adc_chars);  
-	voltage*=VOLTAGE_DIVIDER;
+// 	uint16_t voltage = esp_adc_cal_raw_to_voltage(reading, adc_chars);  
+// 	voltage*=VOLTAGE_DIVIDER;
 
-	return voltage;
-}
-
-
-uint16_t SampleBattery() {
-	static uint8_t i = 0;
-	static uint16_t samp[VBATT_SMOOTH];
-	static int32_t t = 0;
-	static bool f = true;
-	if(f){ for(uint8_t c=0;c<VBATT_SMOOTH;c++){ samp[c]=0; } f=false; }   // Initialize the sample array first time
-	t -= samp[i];   // doing a rolling recording, so remove the old rolled around value out of total and get ready to put new one in.
-	if (t<0) {t = 0;}
-
-	// ADC read
-	uint16_t voltage = ReadVBatt();
-
-	samp[i]=voltage;
-	#if defined(__DEBUG) && __DEBUG > 0
-	Serial.printf("ADC Raw Reading[%d]: %d", i, voltage);
-	#endif
-	t += samp[i];
-
-	if(++i >= VBATT_SMOOTH) {i=0;}
-	uint16_t s = round(((float)t / (float)VBATT_SMOOTH));
-	#if defined(__DEBUG) && __DEBUG > 0
-	Serial.printf("   Smoothed of %d/%d = %d\n",t,VBATT_SMOOTH,s); 
-	#endif
-
-	return s;
-}
-
-void InitBatteryReader(){
-	 // Characterize ADC at particular atten
-  #if (defined(HELTEC_V2_1))
-  adc_chars = (esp_adc_cal_characteristics_t*)calloc(1, sizeof(esp_adc_cal_characteristics_t));
-  esp_adc_cal_value_t val_type = esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_6, ADC_WIDTH_BIT_12, DEFAULT_VREF, adc_chars);
-  adc1_config_width(ADC_WIDTH_BIT_12);
-  adc1_config_channel_atten(ADC1_CHANNEL_1,ADC_ATTEN_DB_6);
-  #else
-  // Use this for older V2.0 with VBatt reading wired to GPIO13
-  adc_chars = (esp_adc_cal_characteristics_t*)calloc(1, sizeof(esp_adc_cal_characteristics_t));
-  esp_adc_cal_value_t val_type = esp_adc_cal_characterize(ADC_UNIT_2, ADC_ATTEN_DB_6, ADC_WIDTH_BIT_12, DEFAULT_VREF, adc_chars);
-  adc2_config_channel_atten(ADC2_CHANNEL_4,ADC_ATTEN_DB_6);
-  #endif
-
-#if defined(__DEBUG) && __DEBUG > 0
-  Serial.printf("ADC Calibration: ");
-  if (val_type == ESP_ADC_CAL_VAL_EFUSE_VREF) {
-      Serial.printf("eFuse Vref\n");
-  } else if (val_type == ESP_ADC_CAL_VAL_EFUSE_TP) {
-      Serial.printf("Two Point\n");
-  } else {
-      Serial.printf("Default[%dmV]\n",DEFAULT_VREF);
-  }
- #else
-  if (val_type);    // Suppress warning
- #endif
+// 	return voltage;
+// }
 
 
+// uint16_t SampleBattery() {
+// 	static uint8_t i = 0;
+// 	static uint16_t samp[VBATT_SMOOTH];
+// 	static int32_t t = 0;
+// 	static bool f = true;
+// 	if(f){ for(uint8_t c=0;c<VBATT_SMOOTH;c++){ samp[c]=0; } f=false; }   // Initialize the sample array first time
+// 	t -= samp[i];   // doing a rolling recording, so remove the old rolled around value out of total and get ready to put new one in.
+// 	if (t<0) {t = 0;}
 
-  //#if defined(__DEBUG) && __DEBUG >= 1
-  Serial.printf("ADC Calibration: ");
-  if (val_type == ESP_ADC_CAL_VAL_EFUSE_VREF) {
-      Serial.printf("eFuse Vref\n");
-  } else if (val_type == ESP_ADC_CAL_VAL_EFUSE_TP) {
-      Serial.printf("Two Point\n");
-  } else {
-      Serial.printf("Default[%dmV]\n",DEFAULT_VREF);
-  }
-  //#else
-  if (val_type);    // Suppress warning
-  //#endif
+// 	// ADC read
+// 	uint16_t voltage = ReadVBatt();
 
-  // Prime the Sample register
-  for (uint8_t i = 0;i < VBATT_SMOOTH;i++) {
-    SampleBattery();
-  }
+// 	samp[i]=voltage;
+// 	#if defined(__DEBUG) && __DEBUG > 0
+// 	Serial.printf("ADC Raw Reading[%d]: %d", i, voltage);
+// 	#endif
+// 	t += samp[i];
 
-  pinMode(VBATT_GPIO,OUTPUT);
-  digitalWrite(VBATT_GPIO, LOW);              // ESP32 Lora v2.1 reads on GPIO37 when GPIO21 is low
-  delay(ADC_READ_STABILIZE);                  // let GPIO stabilize
-}
+// 	if(++i >= VBATT_SMOOTH) {i=0;}
+// 	uint16_t s = round(((float)t / (float)VBATT_SMOOTH));
+// 	#if defined(__DEBUG) && __DEBUG > 0
+// 	Serial.printf("   Smoothed of %d/%d = %d\n",t,VBATT_SMOOTH,s); 
+// 	#endif
+
+// 	return s;
+// }
+
+// void InitBatteryReader(){
+// 	 // Characterize ADC at particular atten
+//   #if (defined(HELTEC_V2_1))
+//   adc_chars = (esp_adc_cal_characteristics_t*)calloc(1, sizeof(esp_adc_cal_characteristics_t));
+//   esp_adc_cal_value_t val_type = esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_6, ADC_WIDTH_BIT_12, DEFAULT_VREF, adc_chars);
+//   adc1_config_width(ADC_WIDTH_BIT_12);
+//   adc1_config_channel_atten(ADC1_CHANNEL_1,ADC_ATTEN_DB_6);
+//   #else
+//   // Use this for older V2.0 with VBatt reading wired to GPIO13
+//   adc_chars = (esp_adc_cal_characteristics_t*)calloc(1, sizeof(esp_adc_cal_characteristics_t));
+//   esp_adc_cal_value_t val_type = esp_adc_cal_characterize(ADC_UNIT_2, ADC_ATTEN_DB_6, ADC_WIDTH_BIT_12, DEFAULT_VREF, adc_chars);
+//   adc2_config_channel_atten(ADC2_CHANNEL_4,ADC_ATTEN_DB_6);
+//   #endif
+
+// #if defined(__DEBUG) && __DEBUG > 0
+//   Serial.printf("ADC Calibration: ");
+//   if (val_type == ESP_ADC_CAL_VAL_EFUSE_VREF) {
+//       Serial.printf("eFuse Vref\n");
+//   } else if (val_type == ESP_ADC_CAL_VAL_EFUSE_TP) {
+//       Serial.printf("Two Point\n");
+//   } else {
+//       Serial.printf("Default[%dmV]\n",DEFAULT_VREF);
+//   }
+//  #else
+//   if (val_type);    // Suppress warning
+//  #endif
+
+
+
+//   //#if defined(__DEBUG) && __DEBUG >= 1
+//   Serial.printf("ADC Calibration: ");
+//   if (val_type == ESP_ADC_CAL_VAL_EFUSE_VREF) {
+//       Serial.printf("eFuse Vref\n");
+//   } else if (val_type == ESP_ADC_CAL_VAL_EFUSE_TP) {
+//       Serial.printf("Two Point\n");
+//   } else {
+//       Serial.printf("Default[%dmV]\n",DEFAULT_VREF);
+//   }
+//   //#else
+//   if (val_type);    // Suppress warning
+//   //#endif
+
+//   // Prime the Sample register
+//   for (uint8_t i = 0;i < VBATT_SMOOTH;i++) {
+//     SampleBattery();
+//   }
+
+//   pinMode(VBATT_GPIO,OUTPUT);
+//   digitalWrite(VBATT_GPIO, LOW);              // ESP32 Lora v2.1 reads on GPIO37 when GPIO21 is low
+//   delay(ADC_READ_STABILIZE);                  // let GPIO stabilize
+// }
 
 // the setup function runs once when you press reset or power the board
 void setup() {
@@ -695,7 +700,7 @@ void setup() {
 	// 	Serial.println("Ok init INA219");
 	// }
 	
-	InitBatteryReader();
+	//InitBatteryReader();
 
 	vl53l1x.setDistanceMode(VL53L1X::Long);
 	vl53l1x.setMeasurementTimingBudget(15000);//50000
@@ -708,6 +713,10 @@ void setup() {
 	// vl53l1x.setROICenter(64);
 	vl53l1x.setROISize(5,5);
 	
+	LoRa.setSpreadingFactor(8);
+	LoRa.setSyncWord(0x12);
+	LoRa.setSignalBandwidth(125E3);
+
 	LoRa.onReceive(onReceive);
 	LoRa.receive();
 
@@ -734,7 +743,7 @@ void loop() {
 	
 
 
-	voltage = SampleBattery();
+	//voltage = SampleBattery();
 
 	// // if (voltage < MINBATT) {                  // Low Voltage cut off shut down to protect battery as long as possible
 	// // 	Heltec.display->setColor(OLEDDISPLAY_COLOR::WHITE);
@@ -782,7 +791,12 @@ void loop() {
 	// 	sendMessage(0x0A, json);
 	// 	LoRa.receive();
 	// }
-
+	if (newMessage)
+	{
+		newMessage = false;
+		TraitementCommande(receivedMessage.Content);
+	}
+	
 	if (EnvoyerStatut)
 	{
 		EnvoyerMsgStatut();
