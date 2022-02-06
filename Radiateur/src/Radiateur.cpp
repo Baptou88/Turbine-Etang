@@ -20,8 +20,12 @@ bool newMessage = false;
 unsigned long lastMessage = 0;
 int msgCount = 0;
 Adafruit_INA219 ina219;
+Adafruit_INA219 ina219_2(0x44);
 
 float current_mA;
+float current_mA_2;
+
+float offset_A = 0;
 
 void onReceive(int packetSize){
   if (packetSize == 0) return;          // if there's no packet, return
@@ -56,7 +60,8 @@ void onReceive(int packetSize){
   lastMessage = millis();
 }
 void mesureSysteme(){
-   current_mA = ina219.getCurrent_mA();
+   current_mA = ina219.getCurrent_mA();   
+   current_mA_2 = ina219_2.getCurrent_mA();
 }
 void setup() {
   // put your setup code here, to run once:
@@ -75,7 +80,21 @@ void setup() {
     Serial.println("Failed to find INA219 chip");
     while (1) { delay(10); }
   }
+  if (! ina219_2.begin()) {
+    Serial.println("Failed to find INA219 chip");
+    while (1) { delay(10); }
+  }
 
+  pinMode(2,INPUT);
+  for (size_t i = 0; i < 10; i++)
+  {
+  Serial.println(offset_A);
+    offset_A += analogRead(2);
+  }
+
+  Serial.println(offset_A);
+  offset_A = ((offset_A/10)*3.3)/4095;
+  Serial.println(offset_A);
 
 }
 
@@ -89,8 +108,16 @@ void loop() {
     LoRa.receive();
   }
   
+ float wcs_vol = (analogRead(2)*3.3)/4095;
+ float wcs_a =  (wcs_vol - offset_A)/0.0269;
+
   Heltec.display->clear();
-  Heltec.display->drawString(0,0,(String)current_mA);
+  Heltec.display->drawString(0,0,(String)current_mA + " mA");
+  // Heltec.display->drawString(0,0,(String)ina219.getBusVoltage_V()+ " V");
+  // Heltec.display->drawString(0,0,(String)ina219.getShuntVoltage_mV()+ " V");
+  Heltec.display->drawString(0,30,(String)current_mA_2 + " mA");
+  Heltec.display->drawString(50,50,(String)wcs_a + " A");
+  Heltec.display->drawString(0,50,(String)wcs_vol + " V");
   Heltec.display->display();
   
 

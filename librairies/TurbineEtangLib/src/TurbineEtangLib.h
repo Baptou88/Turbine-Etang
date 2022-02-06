@@ -19,7 +19,7 @@
 #define ETANG 0xC
 #define RADIATEUR 0xD
 
-#define DEFAULTSF 7
+#define DEFAULTSF 8
 enum ELora
 {
 	Master = 0xA,

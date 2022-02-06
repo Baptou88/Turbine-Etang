@@ -50,7 +50,11 @@
             "memory": "cpp",
             "new": "cpp",
             "typeinfo": "cpp",
-            "cstdlib": "cpp"
+            "cstdlib": "cpp",
+            "charconv": "cpp",
+            "sstream": "cpp",
+            "istream": "cpp",
+            "ostream": "cpp"
         }
     }
 }

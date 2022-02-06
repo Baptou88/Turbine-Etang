@@ -319,6 +319,8 @@ String processor(const String& var) {
 			retour += "<input type=\"time\" id=\"appt\" name=\"appt\"  value= \"\%ProgrammatedTasks" + String(i) + ":getHours\%" + ":" + "\%ProgrammatedTasks" + String(i) + ":getMinutes\%" +"\"  required>\n";
 			retour += "<label for=\"customRange1\" class=\"form-label\">Example range</label>";
 			retour += "<input type=\"range\" value=\"\%ProgrammatedTasks" + String(i) + ":targetVanne\%" + "\" name=\"targetVanne\" class=\"form-range\" id=\"customRange1\">";
+			retour += "<label for=\"appte\">DeepSleep (ms) :</label>\n";
+			retour += "<input type=\"number\" id=\"appte\" name=\"appt\"  value= \"\%ProgrammatedTasks" + String(i) + ":deepsleep\%"  +"\"  required>\n";
 			retour += "<button class=\"btn btn-primary\" type=\"submit\">Mettre a jour</button>";
 			retour += "<a href=\"/programmateur/?delete="+(String) i +"\" class=\"btn btn-danger\">Supprimer</a>";
 			retour += "</form>";
@@ -350,6 +352,10 @@ String processor(const String& var) {
 		if (methode == "targetVanne")
 		{
 			return String(ProgrammatedTasks->get(num_tache)->targetVanne );
+		}
+		if (methode == "deepsleep")
+		{
+			return String(ProgrammatedTasks->get(num_tache)->deepsleep );
 		}
 		
 		return "erreur processing ProgrammatedTasks";
@@ -600,7 +606,20 @@ void RouteHttpSTA() {
 				
 			}
 			
-			request->send(200,"text/plain","ok pour un sommeil");
+			request->send(200,"text/plain","ok pour un sommeil profond");
+		} else if (request->hasParam("b") && request->hasParam("LightSleep"))
+		{
+			for (size_t i = 1; i < allBoard->size(); i++)
+			{
+				board* test = allBoard->get(i);
+				if (request->getParam("b")->value().toInt() == test->localAddress || request->getParam("b")->value().toInt() == 0xff)
+				{
+					test->msgToSend += "LightSleep=" + (String)request->getParam("LightSleep")->value().c_str();
+				}
+				
+			}
+			
+			request->send(200,"text/plain","ok pour un sommeil leger");
 		}
 		
 		
@@ -1450,9 +1469,12 @@ void acquisitionEntree(void){
 // the setup function runs once when you press reset or power the board
 void setup() {
 	
-ProgrammatedTasks->add(new ProgrammatedTask(18,0,"test1"));
-ProgrammatedTasks->add(new ProgrammatedTask(6,30,"test2"));
-ProgrammatedTasks->get(1)->activate();
+	ProgrammatedTasks->add(new ProgrammatedTask(18,0,"test1"));
+	ProgrammatedTasks->add(new ProgrammatedTask(21,00,"DeepSleep"));
+
+	ProgrammatedTasks->get(1)->activate();
+	ProgrammatedTasks->get(1)->deepsleep = 43200000;
+
 	allBoard->add(&localboard);
 	allBoard->add(&TurbineBoard);
 	allBoard->add(&EtangBoard);
@@ -1634,24 +1656,33 @@ void loop() {
 	
 
 	
-	// if (millis()>previouscheckTask + 60000)
-	// {
-	// 	previouscheckTask = millis();
-	// 	for (size_t i = 0; i < ProgrammatedTasks->size(); i++)
-	// 	{
-	// 		ProgrammatedTask *tache = ProgrammatedTasks->get(i);
-	// 		if (tache->isActive())
-	// 		{
-	// 			if (timeClient.getHours() == tache->h && timeClient.getMinutes() == tache->m  )
-	// 			{
-	// 				Serial.println("exec Tache");
-	// 			}
+	if (millis()>previouscheckTask + 60000)
+	{
+		previouscheckTask = millis();
+		for (size_t i = 0; i < ProgrammatedTasks->size(); i++)
+		{
+			ProgrammatedTask *tache = ProgrammatedTasks->get(i);
+			if (tache->isActive())
+			{
+				if (timeClient.getHours() == tache->h && timeClient.getMinutes() == tache->m  )
+				{
+					Serial.println("exec Tache");
+					if (tache->deepsleep != 0)
+					{
+						for (size_t i = 1; i < allBoard->size()	; i++)
+						{
+							allBoard->get(i)->msgToSend += "DeepSleep="+ String(tache->deepsleep);
+						}
+						
+					}
+					
+				}
 				
-	// 		}
+			}
 			
-	// 	}
+		}
 		
-	// }
+	}
 	
 	ws.cleanupClients();
 	//ArduinoOTA.handle();

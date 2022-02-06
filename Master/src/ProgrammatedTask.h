@@ -23,6 +23,7 @@ public:
     byte h;
     byte m;
     int targetVanne = 0;
+    double deepsleep = 0;
 };
 bool ProgrammatedTask::isActive(){
     return _active;

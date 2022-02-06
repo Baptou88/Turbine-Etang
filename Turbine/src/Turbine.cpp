@@ -24,7 +24,7 @@
 // #define FCVanneOuverte 0
 // #define FCVanneFerme 1
 // #define EPRGBUTTON 2
-digitalInput FCVanneOuverte(39,INPUT_PULLDOWN); 
+digitalInput FCVanneOuverte(39,INPUT_PULLUP); 
 digitalInput FCVanneFermee(38,INPUT_PULLDOWN);
 digitalInput* PrgButton= new digitalInput(PRGButton,INPUT_PULLUP);
 //sortie
@@ -90,7 +90,7 @@ long ouvertureMax = 2000;
 byte displayMode = 0;
 long consigneMoteur = 0;
 volatile int sensMoteur = 0;
-long posMoteur;
+RTC_DATA_ATTR long posMoteur;
 
 //Automate
 
@@ -299,11 +299,9 @@ void acquisitionEntree(void) {
 	FCVanneFermee.loop();
 	FCVanneOuverte.loop();
 	PrgButton->loop();
-	// Entree[FCVanneOuverte] = digitalRead(pinFCVanneOuverte) ? true :false ;
-	// Entree[FCVanneFerme] = digitalRead(pinFCVanneFermee) ? true : false;
-	// Entree[EPRGBUTTON] = digitalRead(PRGButton)? true : false;
+
 	mesureIntensite();
-	if (millis()> previousCalculTaqui + 2000)
+	if (millis()> previousCalculTaqui + 1000)
 	{
 		previousCalculTaqui = millis();
 		rpmTurbine = mesureTaqui();
@@ -409,8 +407,13 @@ void TraitementCommande(String c){
 	if (c.startsWith("DeepSleep="))
 	{
 		c.replace("DeepSleep=","");
-		Serial.println("DeepSleep " + String(c.toInt()));
-		esp_sleep_enable_timer_wakeup(c.toInt()*1000);
+		Serial.println("DeepSleep " + String(c.toDouble()));
+		Heltec.display->clear();
+		Heltec.display->drawString(0,0,"DeepSleep");
+		Heltec.display->drawString(0,15,String(c.toDouble()));
+		Heltec.display->display();
+		delay(2000);
+		esp_sleep_enable_timer_wakeup(c.toDouble()*1000);
 		esp_deep_sleep_start();
 	}
 	if (c.startsWith("LightSleep="))
@@ -924,10 +927,7 @@ void setup() {
 	attachInterrupt(pinTaqui, Taqui,RISING);
 #endif
 
-// pinMode(2,OUTPUT);
-// ledcSetup(0,5000,8);
-// ledcAttachPin(2, 0);
-// ledcWrite(0,255);
+
 
 	if (preferences.begin("Turbine",false))
 	{
@@ -955,7 +955,16 @@ void setup() {
 	// initialisation du grafcet
 	InitTableau();
 	// forçage de l'étape initiale
-	Etape[Init] = 1;
+	if (esp_sleep_get_wakeup_cause()== ESP_SLEEP_WAKEUP_TIMER)
+	{
+		Etape[Etapes::AttenteOrdre] = 1;
+	}else
+	{
+		Etape[Init] = 1;
+	}
+	
+	
+	
 
 	LoRa.setSpreadingFactor(DEFAULTSF);
 	LoRa.setSyncWord(0x12);
