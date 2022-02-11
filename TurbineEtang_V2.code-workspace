@@ -24,7 +24,6 @@
             "name": "TurbineEtangLib",
             "path": "librairies\\TurbineEtangLib"
         }
-        
     ],
     "settings": {
         "files.associations": {

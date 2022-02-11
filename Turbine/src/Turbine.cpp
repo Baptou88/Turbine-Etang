@@ -20,6 +20,7 @@
 
 #define TAILLETAB 24
 
+#define MOTEUR_USE_PWM
 //entree
 // #define FCVanneOuverte 0
 // #define FCVanneFerme 1
@@ -28,6 +29,12 @@ digitalInput FCVanneOuverte(39,INPUT_PULLUP);
 digitalInput FCVanneFermee(38,INPUT_PULLDOWN);
 digitalInput* PrgButton= new digitalInput(PRGButton,INPUT_PULLUP);
 //sortie
+#if defined(MOTEUR_USE_PWM)
+
+#else
+
+#endif // MOTEUR_USE_PWM
+
 digitalOutput* OuvertureVanne = new digitalOutput(12);
 digitalOutput* FermetureVanne = new digitalOutput(13);
 // #define OuvertureVanne 0
@@ -75,6 +82,7 @@ bool EnvoyerStatut = false;
 float tourMoteurVanne = 18 / float(44); 
 
 unsigned long dernieredetectionEncodA = 0;
+unsigned long dernieredetectionEncodB = 0;
 
 bool bOuvertureTotale = false;
 bool bFermetureTotale = false;
@@ -714,7 +722,11 @@ void stopTempo(int numTempo) {
 
 		
 void IRAM_ATTR EncodB() {
-	 countEncodB += 1;
+	if (millis()> dernieredetectionEncodB + 1)
+	{
+		dernieredetectionEncodB = millis();
+	 	countEncodB += 1;
+	}
 }
 
  void displayData() {
