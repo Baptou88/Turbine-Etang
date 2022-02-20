@@ -13,6 +13,7 @@
 #include "Moteur.h"
 #include "TurbineEtangLib.h"
 #include "motion.h"
+#include "menu.h"
 
 
 
@@ -82,6 +83,11 @@ int maxIntensite = 3000; //mA
 
 byte displayMode = 0;
 
+//menus
+
+String  menu_param[] = {"AP", "STA","ScanWifi"};
+menu Menu_param(3,3,NULL,NULL);
+
 void INIT(){
   static unsigned long ti = millis();
 
@@ -95,6 +101,8 @@ void AUTO(){
   
   myPID.SetMode(AUTOMATIC);
 
+  posMoteur += countEncodA;
+  countEncodA = 0;
 
   MoteurPWM = Output;
   if (MoteurPWM >255) MoteurPWM = 255;
@@ -171,6 +179,8 @@ State state_POM(NULL,[](){
     pom_success = true;
     delay(200);
     posMoteur = 0;
+    countEncodA = 0;
+    countEncodB = 0;
     break;
   default:
     break;
@@ -180,12 +190,15 @@ State state_POM(NULL,[](){
   display->display();
 },NULL);
 State state_OuvertureTotale(NULL,[](){
-  
+  posMoteur += countEncodA;
+  countEncodA = 0;
   
   myPID.SetMode(MANUAL);
   MoteurPWM = 255;
 },NULL);
 State state_FermetureTotale(NULL,[](){
+  posMoteur += countEncodA;
+  countEncodA = 0;
   if (FCVanneFermee.isPressed())
   {
     MoteurPWM = 0;
@@ -204,8 +217,29 @@ State state_StopIntensite(NULL,[](){
   MoteurPWM = 0;
 },NULL);
 
+State state_param(NULL,[](){
+  display->clear();
+  display->drawString(0,0,"Param:");
+  display->drawString(60,0,(String)countEncodA);
+  static unsigned lastcountEncodA = 0;
+  if (digitalRead(pinEncodeurA)== LOW  && millis()-lastcountEncodA >500)
+  {
+    lastcountEncodA = millis();
+    Menu_param.selectNext();
+  }
+  
+
+  Menu_param.loop();
+  Menu_param.render();
+
+  display->display();
+},NULL);
+
 void initTransition(){
   fsm.add_timed_transition(&state_INIT,&state_POM,2000, NULL);
+  fsm.add_transition(&state_INIT, &state_AUTO,[](unsigned long duration){
+    return PrgButton->isPressed();
+  },NULL);
   fsm.add_transition(&state_POM,&state_AUTO,[](unsigned long duration){
     return pom_success;
   },NULL);
@@ -251,6 +285,10 @@ void initTransition(){
   },NULL);
   fsm.add_transition(&state_FermetureTotale,&state_StopIntensite,[](unsigned long duration){
     return currentValue > maxIntensite;
+  },NULL);
+
+  fsm.add_transition(&state_AUTO,&state_param,[](unsigned long duration){
+    return PrgButton->pressedTime() > 2000;
   },NULL);
 }
 void IRAM_ATTR isrEncodA(void){
@@ -478,6 +516,15 @@ void displayData() {
 	Heltec.display->display();
  }
 
+ float mesureTaqui(void){
+	float rpm = countTaqui * 60000 / float((millis() - previousMillisTaqui));
+	countTaqui = 0;
+	previousMillisTaqui = millis();
+
+	return rpm;
+}
+
+
 /**
  * @brief Acquisition des Entrées
  * 
@@ -487,7 +534,18 @@ void acquisitionEntree(void) {
 	FCVanneOuverte.loop();
 	PrgButton->loop();
 
-  currentValue = ina260.readCurrent();
+  if (millis()> previousMesureIntensite + 200)
+	{
+		previousMesureIntensite = millis();
+		currentValue = ina260.readCurrent();
+		
+	}
+
+  if (millis()> previousCalculTaqui + 1000)
+	{
+		previousCalculTaqui = millis();
+		rpmTurbine = mesureTaqui();
+	}
 }
 
 /**
@@ -638,6 +696,18 @@ void setup() {
 
 	LoRa.onReceive(onReceive);
 	LoRa.receive();
+
+  //menus
+
+  Menu_param.onRender([](int num, int numel,bool hover){
+		//Serial.println("onrendermodeWifi " + (String)num + (String)numel);
+		Heltec.display->drawString(12,num*12+14,menu_param[numel]);
+		if (hover)
+		{
+			Heltec.display->fillCircle(6,num*12+14+6,3);
+		}
+		
+	});
 }
 
 void loop() {
@@ -660,8 +730,7 @@ void loop() {
   
   
  
-  posMoteur += countEncodA;
-  countEncodA = 0;
+
   myPID.Compute();
    
    if (newMessage)

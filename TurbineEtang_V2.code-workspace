@@ -53,7 +53,16 @@
             "charconv": "cpp",
             "sstream": "cpp",
             "istream": "cpp",
-            "ostream": "cpp"
+            "ostream": "cpp",
+            "atomic": "cpp",
+            "chrono": "cpp",
+            "iomanip": "cpp",
+            "list": "cpp",
+            "streambuf": "cpp",
+            "xlocbuf": "cpp",
+            "iosfwd": "cpp",
+            "limits": "cpp",
+            "shared_mutex": "cpp"
         }
     }
 }

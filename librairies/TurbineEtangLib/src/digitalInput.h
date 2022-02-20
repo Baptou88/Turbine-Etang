@@ -27,6 +27,11 @@ public:
     bool getState();
 };
 
+/**
+ * @brief retourne le temps en ms d'appui
+ * 
+ * @return unsigned long 
+ */
 unsigned long digitalInput::pressedTime(){
     if (isPressed())
     {

@@ -247,16 +247,16 @@ void displayData(void)
 		Heltec.display->drawString(0, 40, vl53l1x.rangeStatusToString(vl53l1x.ranging_data.range_status));
 		AfficherNiveauJauge();
 		
-		Heltec.display->drawString(60,2,"Max:" + String(NiveauMax));
-		Heltec.display->drawString(60,52,"Min:" + String(NiveauMin));
+		Heltec.display->drawString(60, 2,"Max:" + String(NiveauMax));
+		Heltec.display->drawString(60, 52,"Min:" + String(NiveauMin));
 		break;
 	case 1:
-		Heltec.display->drawString(0, 05, "Range   " + String(vl53l1x.ranging_data.range_mm));
-		Heltec.display->drawString(0, 15, "Status  " + String(vl53l1x.rangeStatusToString(vl53l1x.ranging_data.range_status)));
-		Heltec.display->drawString(0, 25, "Ambient " + String(vl53l1x.ranging_data.ambient_count_rate_MCPS));
-		Heltec.display->drawString(0, 35, "Peak    " + String(vl53l1x.ranging_data.peak_signal_count_rate_MCPS));
-		Heltec.display->drawString(0,45,"TimingBudget: " + String(vl53l1x.getMeasurementTimingBudget()));
-		Heltec.display->drawString(0,55,"TimingBudget: " + String(vl53l1x.getROICenter() ));
+		Heltec.display->drawString(0, 0, "Range   " + String(vl53l1x.ranging_data.range_mm));
+		Heltec.display->drawString(0, 10, "Status  " + String(vl53l1x.rangeStatusToString(vl53l1x.ranging_data.range_status)));
+		Heltec.display->drawString(0, 20, "Ambient " + String(vl53l1x.ranging_data.ambient_count_rate_MCPS));
+		Heltec.display->drawString(0, 30, "Peak    " + String(vl53l1x.ranging_data.peak_signal_count_rate_MCPS));
+		Heltec.display->drawString(0, 40, "TimingBudget: " + String(vl53l1x.getMeasurementTimingBudget()));
+		Heltec.display->drawString(0, 50, "Roi center: " + String(vl53l1x.getROICenter() ));
 		break;
 	case 2 :
 		Heltec.display->drawLogBuffer(0,0);
@@ -653,32 +653,29 @@ void setup() {
 	pinMode(PRGButton, INPUT);
 
 	//bmp280
-	if (!bmp.begin(0x76)) {
+	while (!bmp.begin(0x76)) {
 		Heltec.display->drawString(0, 12, "Failed init bmp280");
 		Heltec.display->display();
-    
-  	} else {
-		  Heltec.display->drawString(0, 12, "ok init bmp280");
-	}
+		delay(1000);
+  	} 
+
+	Heltec.display->drawString(0, 12, "ok init bmp280");
+	
 	//Vl53L1X
 	vl53l1x.setTimeout(500);
 	Heltec.display->drawString(20, 24, "Init vl53l1x");
-	if (!vl53l1x.init())
+	while (!vl53l1x.init())
 	{
 		Heltec.display->drawString(0, 24, "X");
 		Serial.println("Failed init VL53L1X");
 		Heltec.display->display();
-		while (true)
-		{
-			delay(10);
-		}
+		delay(1000);
 		
 	}
-	else
-	{
-		Heltec.display->drawString(0, 24, "OK");
-		Serial.println("Ok init VL53L1X");
-	}
+	
+	Heltec.display->drawString(0, 24, "OK");
+	Serial.println("Ok init VL53L1X");
+	
 
 
 	// //ina219
@@ -717,7 +714,7 @@ void setup() {
 	LoRa.setSyncWord(0x12);
 	LoRa.setSignalBandwidth(125E3);
 
-	LoRa.onReceive(onReceive);
+	//LoRa.onReceive(onReceive);
 	LoRa.receive();
 
 	
@@ -738,6 +735,7 @@ void setup() {
 
 // the loop function runs over and over again until power down or reset
 void loop() {
+	onReceive(LoRa.parsePacket());
 	mesureSysteme();
 	//displayData();
 	
