@@ -103,6 +103,11 @@ document.addEventListener('DOMContentLoaded', function () {
         data:[],
         name: 'Ouverture (%)',
         color: '#FFAA8a' 
+      },
+      { 
+        data:[],
+        name: 'Cible (%)',
+        color: '#FFC78A' 
       }//, {
     //       name: 'John',
     //       data: [5, 7, 3]
@@ -120,6 +125,7 @@ document.addEventListener('DOMContentLoaded', function () {
         //console.log([i,element.niveau])
         options.series[0].data.push([(new Date(element.time * 1000)).getTime(), element.niveauEtang* 100 ])
         options.series[1].data.push([(new Date(element.time * 1000)).getTime(),element.ouverture*100])
+        options.series[2].data.push([(new Date(element.time * 1000)).getTime(),element.setpoint*100])
       });
         // options.series[0].data = data;
         chartniveautests = Highcharts.chart('chart-niveautests', options );
@@ -250,6 +256,8 @@ function maj(){
           var x = (new Date()).getTime()
           
           var yn = message.Ouverture * 100
+          var zn = message.Setpoint * 100
+
           var barProgress = document.querySelector(".progress-bar")
           barProgress.style.width = yn + '%'
             //ajout donnée niveau dans graph
@@ -259,6 +267,14 @@ function maj(){
           } else {
             //chartniveau.series[0].addPoint([x, yn],true ,false,true);
             chartniveautests.series[1].addPoint([x, yn],true ,false,true);
+          
+          }
+          if (chartniveautests.series[2].data.length > 40 ) {
+            //chartniveau.series[0].addPoint([x, yn],true ,true,true);
+            chartniveautests.series[2].addPoint([x,zn],true,true,true)
+          } else {
+            //chartniveau.series[0].addPoint([x, yn],true ,false,true);
+            chartniveautests.series[2].addPoint([x, zn],true ,false,true);
           
           }
         }

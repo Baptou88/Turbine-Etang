@@ -130,6 +130,7 @@ double OuvertureVanne = 0;
 double OuvertureMaxVanne = 1800; 
 double pidOuvertureVanne = 0;
 double pidOuvertureMaxVanne = -1800; 
+double Setpoint = 0;
 
 // Parameter 1 = number of pixels in strip
 // Parameter 2 = Arduino pin number (most are valid)
@@ -1098,11 +1099,12 @@ void deserializeResponse(byte board, String Response){
 		pidNiveauEtang = -1 * NiveauEtang;
 		break;
 	case TURBINE:
-		if (doc.containsKey("Ouverture") && doc.containsKey("OuvMaxCodeur"))
+		if (doc.containsKey("Ouverture") && doc.containsKey("OuvMaxCodeur") && doc.containsKey("Setpoint"))
 		{
 			Serial.println("J'ai bien les key du json de turbine");
 			OuvertureVanne = doc["Ouverture"];
 			OuvertureMaxVanne = doc["OuvMaxCodeur"];
+			Setpoint = doc["Setpoint"];
 			pidOuvertureMaxVanne = -1*OuvertureMaxVanne;
 			pidOuvertureVanne = -1*OuvertureVanne;
 			myPID.setOutputRange(  (-1)* (OuvertureMaxVanne - OuvertureVanne), (-1 * OuvertureVanne) );
