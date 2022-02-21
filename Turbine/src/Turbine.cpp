@@ -156,7 +156,7 @@ State state_POM(NULL,[](){
   if (FCVanneFermee.isReleased() && state == 0 && state !=4) {
     state = 1;
   }
-  if (FCVanneFermee.isPressed() && state !=0 )
+  if (FCVanneFermee.isPressed() && state !=0 && state  !=4)
   {
     state = 3;
     
@@ -181,8 +181,10 @@ State state_POM(NULL,[](){
     posMoteur = 0;
     countEncodA = 0;
     countEncodB = 0;
+    Serial.println(millis());
     break;
   default:
+    Serial.println("defaul");
     break;
   }
   
@@ -237,9 +239,9 @@ State state_param(NULL,[](){
 
 void initTransition(){
   fsm.add_timed_transition(&state_INIT,&state_POM,2000, NULL);
-  fsm.add_transition(&state_INIT, &state_AUTO,[](unsigned long duration){
-    return PrgButton->isPressed();
-  },NULL);
+  // fsm.add_transition(&state_INIT, &state_AUTO,[](unsigned long duration){
+  //   return PrgButton->isPressed();
+  // },NULL);
   fsm.add_transition(&state_POM,&state_AUTO,[](unsigned long duration){
     return pom_success;
   },NULL);
@@ -514,17 +516,17 @@ void displayData() {
  	
 	Heltec.display->drawString(120,50,(String)displayMode) ;
 	Heltec.display->display();
- }
+}
 
- float mesureTaqui(void){
+ 
+
+float mesureTaqui(void){
 	float rpm = countTaqui * 60000 / float((millis() - previousMillisTaqui));
 	countTaqui = 0;
 	previousMillisTaqui = millis();
 
 	return rpm;
 }
-
-
 /**
  * @brief Acquisition des Entrées
  * 
