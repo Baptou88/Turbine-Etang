@@ -279,7 +279,7 @@ void EnvoyerMsgStatut(void){
 	doc["mesure"] = vl53l1x.ranging_data.range_mm;
 	doc["Niveau"] = PNiveau();
 	doc["RangeStatus"] = VL53L1X::rangeStatusToString( vl53l1x.ranging_data.range_status);
-	doc["temp"] = temp,
+	doc["temp"] = temp;
 	doc["pressure"] = pressure;
 	
 	serializeJson(doc,json);
@@ -332,7 +332,7 @@ void EvolutionGraphe(void) {
 	if (Etape[Start])
 	{
 		//Serial.println("Etape Start");
-		startTempo(0,30000);
+		startTempo(0,60000);
 	}
 	
 	if (Etape[EcranOn])
@@ -402,15 +402,15 @@ void mesureSysteme(void)
 {
 	if (millis() - previousMesure > 1000)
 	{
-		Serial.println("debut mesure");
+		//Serial.println("debut mesure");
 		previousMesure = millis();
 		vl53l1x.read();
 		
 		temp = bmp.readTemperature();
 		pressure = bmp.readPressure();
-		Serial.println("      mesure");
+		//Serial.println("      mesure");
 		NiveauEtang = vl53l1x.ranging_data.range_mm;
-		Serial.println("fin   mesure");
+		//Serial.println("fin   mesure");
 	}
 	
 
@@ -497,7 +497,7 @@ void TraitementCommande(String Commande){
 	}
 	
 }
-void onReceive(int packetSize)
+void Receive(int packetSize)
 {
 	if (packetSize == 0) return;          // if there's no packet, return
 
@@ -678,24 +678,7 @@ void setup() {
 	
 
 
-	// //ina219
-	// Heltec.display->drawString(20, 36, "Init ina219");
-	// if (!ina.begin())
-	// {
-	// 	Heltec.display->drawString(0, 36, "X");
-	// 	Serial.println("Failed init INA219");
-	// 	Heltec.display->display();
-	// 	while (true)
-	// 	{
-	// 		delay(10);
-	// 	}
-		
-	// }
-	// else
-	// {
-	// 	Heltec.display->drawString(0, 36, "OK");
-	// 	Serial.println("Ok init INA219");
-	// }
+
 	
 	//InitBatteryReader();
 
@@ -711,8 +694,11 @@ void setup() {
 	vl53l1x.setROISize(5,5);
 	
 	LoRa.setSpreadingFactor(8);
+	delay(10);
 	LoRa.setSyncWord(0x12);
+	delay(10);
 	LoRa.setSignalBandwidth(125E3);
+	delay(10);
 
 	//LoRa.onReceive(onReceive);
 	LoRa.receive();
@@ -735,7 +721,8 @@ void setup() {
 
 // the loop function runs over and over again until power down or reset
 void loop() {
-	onReceive(LoRa.parsePacket());
+
+	Receive(LoRa.parsePacket());
 	mesureSysteme();
 	//displayData();
 	
@@ -808,12 +795,7 @@ void loop() {
 		
 		
 	}
-	// if (receivedMessage. != "")
-	// {
-	// 	Serial.println(receivedMessage.Content);
-	// 	TraitementCommande(receivedMessage.Content);
-	// 	receivedMessage.Content= "";
-	// }
+
 	
 
 	// acquisition des entrées et stockage dans variables internes

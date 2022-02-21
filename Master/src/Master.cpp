@@ -41,6 +41,7 @@
 #define BAND 868E6
 //#define PRGButton 0
 
+
 digitalInput* prgButton = new digitalInput(0,INPUT_PULLUP);
 digitalInput* encodLeft = new digitalInput(36,INPUT_PULLUP);
 digitalInput* encodRight = new digitalInput(38,INPUT_PULLUP);
@@ -79,7 +80,7 @@ board EtangBoard("Etang", ETANG);
 
 board TurbineBoard("Turbine", TURBINE);
 
-board RadiateurBoard("Radiateur", Radiateur);
+//board RadiateurBoard("Radiateur", Radiateur);
 
 //board *allBoard[3] = {  &localboard, &EtangBoard , &TurbineBoard};
 String  modeWifi[] = {"AP", "STA","ScanWifi"};
@@ -1480,7 +1481,7 @@ void setup() {
 	allBoard->add(&localboard);
 	allBoard->add(&TurbineBoard);
 	allBoard->add(&EtangBoard);
-	allBoard->add(&RadiateurBoard);
+	//allBoard->add(&RadiateurBoard);
 	
 	Logger::instance().setSerial(&Serial);
 	
@@ -1510,6 +1511,8 @@ void setup() {
 
 	
 	Heltec.display->clear();
+	
+	
 	if (!SPIFFS.begin(true)) {
 		Serial.println("SPIFFS Mount Failed");
 		Heltec.display->drawString(0,10,"SPIFFS Failed");

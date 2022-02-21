@@ -690,7 +690,7 @@ void setup() {
   Serial.print("vitesseM, ");
   Serial.println();
 
-  LoRa.setSpreadingFactor(DEFAULTSF);
+  LoRa.setSpreadingFactor(8);
 	LoRa.setSyncWord(0x12);
 	LoRa.setSignalBandwidth(125E3);
 
