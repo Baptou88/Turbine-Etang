@@ -404,13 +404,18 @@ void mesureSysteme(void)
 	{
 		//Serial.println("debut mesure");
 		previousMesure = millis();
-		vl53l1x.read();
+		
 		
 		temp = bmp.readTemperature();
 		pressure = bmp.readPressure();
 		//Serial.println("      mesure");
-		NiveauEtang = vl53l1x.ranging_data.range_mm;
+		
 		//Serial.println("fin   mesure");
+	}
+	if (vl53l1x.dataReady())
+	{
+		Serial.println("Niveau " + (String)vl53l1x.read(false));
+		NiveauEtang = vl53l1x.ranging_data.range_mm;
 	}
 	
 
@@ -497,7 +502,7 @@ void TraitementCommande(String Commande){
 	}
 	
 }
-void Receive(int packetSize)
+void onReceive(int packetSize)
 {
 	if (packetSize == 0) return;          // if there's no packet, return
 
@@ -700,7 +705,7 @@ void setup() {
 	LoRa.setSignalBandwidth(125E3);
 	delay(10);
 
-	//LoRa.onReceive(onReceive);
+	LoRa.onReceive(onReceive);
 	LoRa.receive();
 
 	
@@ -722,7 +727,7 @@ void setup() {
 // the loop function runs over and over again until power down or reset
 void loop() {
 
-	Receive(LoRa.parsePacket());
+	
 	mesureSysteme();
 	//displayData();
 	
