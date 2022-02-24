@@ -150,11 +150,17 @@ State state_POM(NULL,[](){
   static int state = -1;
   unsigned long timerPOM = 0;
   display->clear();
-  if (FCVanneFermee.isPressed() && state == 0)
+  if (state == -1){
+   timerPOM = millis();
+   state =0;
+   if (FCVanneFermee.isPressed()  )
   {
     state = 0;
   } 
-  if (FCVanneFermee.isReleased() && state == 0 && state !=4) {
+  }
+    
+
+  if (FCVanneFermee.isReleased() && state ==0 ) {
     state = 1;
   }
   if (state == 3)
@@ -162,12 +168,12 @@ State state_POM(NULL,[](){
     state = 4;
   }
   
-  if (FCVanneFermee.isPressed() && state !=0 && state  !=4)
+  if (FCVanneFermee.isPressed() && state !=0 && state !=4 && state !=-1)
   {
     state = 3;
     
   }
-  if (currentValue > maxIntensite || millis() - timerPOM > 30000)
+  if (((currentValue > maxIntensite) || (millis() - timerPOM > 30000)) && state !=0 && (state !=-1))
   {
     state = 5;
   }
@@ -176,10 +182,7 @@ State state_POM(NULL,[](){
   
   switch (state)
   {
-    case -1:
-    timerPOM = millis();
-    state = 0;
-    break;
+    
   case 0:
     MoteurPWM = 255;
     break;
@@ -196,7 +199,7 @@ State state_POM(NULL,[](){
     posMoteur = 0;
     countEncodA = 0;
     countEncodB = 0;
-    Serial.println(millis());
+    Serial.println("POM ok " + String(millis()));
     break;
   case 5:
     MoteurPWM = 0;
@@ -271,7 +274,7 @@ void initTransition(){
     return !do_send_msg;
   }, NULL);
   fsm.add_transition(&state_INIT,&state_AUTO,[](unsigned long duration){
-    return esp_sleep_get_wakeup_cause()== ESP_SLEEP_WAKEUP_TIMER;
+    return esp_sleep_get_wakeup_cause()== ESP_SLEEP_WAKEUP_TIMER || PrgButton->isPressed();
   },NULL);
   fsm.add_transition(&state_AUTO,&state_OuvertureTotale,[](unsigned long duration){
     return do_ouvertureTotale;
