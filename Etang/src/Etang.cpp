@@ -265,6 +265,7 @@ void displayData(void)
 	case 3:
 		drawBattery(voltage, voltage < LIGHT_SLEEP_VOLTAGE);
 		Heltec.display->drawString(0,0,"0x"+ String(localAddress,HEX));
+		Heltec.display->drawString(0,40,(String) + receivedMessage.RSSI + " dbm");
 		break;
 	default:
 		Heltec.display->drawString(0, 10, "erreur indice affichage" );
@@ -381,7 +382,7 @@ void EvolutionGraphe(void) {
 		//Heltec.display->displayOff();
 		//Heltec.display->clear();
 		Heltec.display->sleep();
-		Heltec.VextOFF();
+		//Heltec.VextOFF();
 		
 	}
 	if (Etape[Reveil])
@@ -513,7 +514,7 @@ void onReceive(int packetSize)
 	byte incomingLength = LoRa.read();    // incoming msg length
 
 	receivedMessage.Content = "";                 // payload of packet
-
+	Serial.println("RSSI: " + String(LoRa.packetRssi()));
 	while (LoRa.available())             // can't use readString() in callback
 	{
 		receivedMessage.Content += (char)LoRa.read();      // add bytes one by one
@@ -531,7 +532,7 @@ void onReceive(int packetSize)
 		Serial.println("This message is not for me.");
 		return;                             // skip rest of function
 	}
-	
+	receivedMessage.RSSI = LoRa.packetRssi();
 	//// if message is for this device, or broadcast, print details:
 	Serial.println("Received from: 0x" + String(receivedMessage.sender, HEX));
 	Serial.println("Sent to: 0x" + String(receivedMessage.recipient, HEX));
@@ -651,7 +652,16 @@ void onReceive(int packetSize)
 
 // the setup function runs once when you press reset or power the board
 void setup() {
-	Heltec.begin(true, true, true, true, 868E6);
+	Heltec.begin(true, false, true, true, 868E6);
+
+	SPI.begin(SCK,MISO,MOSI,SS);
+	LoRa.setPins(SS,RST_LoRa,DIO0);
+	while (!LoRa.begin(868E6))
+	{
+		Serial.println("erreur lora");
+		delay(1000);
+	}
+
 	Serial.println(string_wakeup_reason(esp_sleep_get_wakeup_cause()));
 	Serial.println(wakeup_touchpad(esp_sleep_get_touchpad_wakeup_status()));
 	pinMode(LED_BUILTIN, OUTPUT);

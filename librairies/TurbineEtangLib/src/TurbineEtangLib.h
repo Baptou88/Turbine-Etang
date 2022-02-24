@@ -41,6 +41,7 @@ public:
 	int length() {
 		return this->Content.length();
 	}
+	int RSSI = 0;
 	
 	String toJson() {
 		String retour = "{ \"recipient\" : \"" + String(recipient) + "\"," +

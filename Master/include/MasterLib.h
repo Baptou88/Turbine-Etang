@@ -9,7 +9,12 @@
 
 #include "TurbineEtangLib.h"
 #include "Heltec.h"
-#include "LinkedList.h" 
+namespace LL{ 
+#include <LinkedList.h>
+}
+
+template<typename T> using LNode = LL::ListNode<T>;
+template<typename T> using LList = LL::LinkedList<T>;
 
 typedef enum {
 	Manuel,
@@ -35,9 +40,9 @@ private:
 class board
 {
 public:
-	LinkedListB::LinkedList<Command> *Commands ;
+	LList<Command> *Commands ;
 	board(String N, byte Address) {
-		Commands = new LinkedListB::LinkedList<Command>();
+		Commands = new LList<Command>();
 		Name = N;
 		localAddress = Address;
 		

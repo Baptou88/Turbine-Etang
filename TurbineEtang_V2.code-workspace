@@ -62,7 +62,9 @@
             "xlocbuf": "cpp",
             "iosfwd": "cpp",
             "limits": "cpp",
-            "shared_mutex": "cpp"
+            "shared_mutex": "cpp",
+            "mutex": "cpp",
+            "thread": "cpp"
         }
     }
 }

@@ -135,8 +135,8 @@ void AUTO(){
   
 }
 //FSM
-State state_INIT(NULL,&INIT,NULL);
-State state_AUTO(NULL,&AUTO,NULL);
+State state_INIT(NULL,&INIT,NULL,"INIT");
+State state_AUTO(NULL,&AUTO,NULL,"AUTO");
 
 Fsm fsm(&state_INIT);
 State state_SendMessage(NULL,[](){
@@ -145,9 +145,10 @@ State state_SendMessage(NULL,[](){
   display->display();
   delay(2000);
   do_send_msg = false;
-},NULL);
+},NULL,"SendMsg");
 State state_POM(NULL,[](){
-  static int state = 0;
+  static int state = -1;
+  unsigned long timerPOM = 0;
   display->clear();
   if (FCVanneFermee.isPressed() && state == 0)
   {
@@ -161,10 +162,19 @@ State state_POM(NULL,[](){
     state = 3;
     
   }
+  if (currentValue > maxIntensite || millis() - timerPOM > 30000)
+  {
+    state = 5;
+  }
+  
   
   
   switch (state)
   {
+    case -1:
+    timerPOM = millis();
+    state = 0;
+    break;
   case 0:
     MoteurPWM = 255;
     break;
@@ -183,6 +193,9 @@ State state_POM(NULL,[](){
     countEncodB = 0;
     Serial.println(millis());
     break;
+  case 5:
+    MoteurPWM = 0;
+    Heltec.display->drawString(0,40,"Erreur POM");
   default:
     Serial.println("defaul");
     break;
@@ -190,14 +203,14 @@ State state_POM(NULL,[](){
   
   display->drawString(0,0,"State, "+ String(state));
   display->display();
-},NULL);
+},NULL,"POM");
 State state_OuvertureTotale(NULL,[](){
   posMoteur += countEncodA;
   countEncodA = 0;
   
   myPID.SetMode(MANUAL);
   MoteurPWM = 255;
-},NULL);
+},NULL,"OuvertureTotale");
 State state_FermetureTotale(NULL,[](){
   posMoteur += countEncodA;
   countEncodA = 0;
@@ -210,14 +223,14 @@ State state_FermetureTotale(NULL,[](){
   }
   myPID.SetMode(MANUAL);
   MoteurPWM = -255;
-},NULL);
+},NULL,"FermetureTotale");
 State state_StopIntensite(NULL,[](){
   myPID.SetMode(MANUAL);
   display->clear();
   display->drawString(10,10,"Stop intensite");
   display->display();
   MoteurPWM = 0;
-},NULL);
+},NULL,"StopI");
 
 State state_param(NULL,[](){
   display->clear();
@@ -235,7 +248,7 @@ State state_param(NULL,[](){
   Menu_param.render();
 
   display->display();
-},NULL);
+},NULL,"param");
 
 void initTransition(){
   fsm.add_timed_transition(&state_INIT,&state_POM,2000, NULL);
@@ -330,6 +343,7 @@ void TraitementCommande(String c){
 		//doc["StatutVanne"] = StatutVanne;
 		doc["OuvCodeur"] = posMoteur;
 		doc["OuvMaxCodeur"] = ouvertureMax;
+    doc["State"] = fsm.getActiveState()->Name;
 		serializeJson(doc,json);
 		Serial.println(json);
 		sendMessage(MASTER, json);

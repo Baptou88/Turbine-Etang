@@ -2,7 +2,12 @@
 #include "Heltec.h"
 #include <ESPAsyncWebServer.h>
 #include "MasterLib.h"
+namespace LL{ 
 #include <LinkedList.h>
+}
+
+template<typename T> using LNode = LL::ListNode<T>;
+template<typename T> using LList = LL::LinkedList<T>;
 
 extern AsyncWebSocket ws;
 extern AsyncWebServer serverHTTP;
@@ -14,7 +19,7 @@ extern AsyncWebServer serverHTTP;
 // }EmodeTurbine;
 extern EmodeTurbine modeTurbine;
 //extern board *allBoard[3];
-extern LinkedListB::LinkedList<board*> *allBoard;
+extern LList<board*> *allBoard;
 extern double OuvertureVanne;
 
 void notifyClients() {

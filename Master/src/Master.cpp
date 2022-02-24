@@ -23,9 +23,14 @@
 #include <WiFiUdp.h>
 #include <Adafruit_NeoPixel.h>
 #include <AutoPID.h>
-#include <LinkedList.h>
 #include <Preferences.h>
 #include <logger.h>
+namespace LL{ 
+#include <LinkedList.h>
+}
+
+template<typename T> using LNode = LL::ListNode<T>;
+template<typename T> using LList = LL::LinkedList<T>;
 
 
 #include "TurbineEtangLib.h"
@@ -91,9 +96,9 @@ menu menuModeWifi(3,3,encodRight,encodLeft);
 
 menu menuStationWifi(2,2,encodRight,encodLeft);
 //LinkedList<board*> allBoard = new LinkedList<board*>();
-LinkedListB::LinkedList<board*> *allBoard = new  LinkedListB::LinkedList<board*>();
+LList<board*> *allBoard = new  LList<board*>();
 
-LinkedListB::LinkedList<ProgrammatedTask*> *ProgrammatedTasks = new LinkedListB::LinkedList<ProgrammatedTask*>();
+LList<ProgrammatedTask*> *ProgrammatedTasks = new LList<ProgrammatedTask*>();
 
 unsigned long lastDemandeStatut = 0;
 unsigned long previouscheckTask = 0;
@@ -169,6 +174,8 @@ enum mode{
 	selectModeWifi,
 	selectStation,
 	normal,
+	StartScanWifi,
+	SchowScanWifi,
 	testbutton, // TODO remove this
 };
 mode Mode = initSTA; //TODO change this
@@ -197,6 +204,7 @@ String processor(const String& var) {
 			retour += "<div class = \"card-body\">\n";
 			//retour += "<h5>LastMessage: </h5><div class=\"message\">" + allBoard->get(i)->LastMessage.Content + "</div>\n";
 			board *temp = allBoard->get(i);
+			
 			for (byte j = 0; j < temp->Commands->size(); j++) 
 			{
 				if (allBoard->get(i)->Commands->get(j).Name != "")
@@ -1005,15 +1013,16 @@ void displayData(void) {
 		break;
 	case 4:
 		Heltec.display->drawString(0,0,"Nb: " + String(allBoard->size()-1));
-		Heltec.display->drawString(80,0,"C ");
-		Heltec.display->drawString(100,0,"WR");
+		Heltec.display->drawString(100,0,"C ");
+		Heltec.display->drawString(112,0,"WR");
 		for (size_t i = 1; i < allBoard->size(); i++)
 		{
-			Heltec.display->drawString(50,(i-1)*12+15,(String)allBoard->get(i)->localAddress);
+			Heltec.display->drawString(48,(i-1)*12+15,(String)allBoard->get(i)->LastMessage.RSSI);
 			Heltec.display->drawString(0,(i-1)*12+15,(String)allBoard->get(i)->Name);
-			Heltec.display->drawString(80,(i-1)*12+15,(String)allBoard->get(i)->isConnected());
-			Heltec.display->drawString(100,(i-1)*12+15,(String)allBoard->get(i)->waitforResponse);
+			Heltec.display->drawString(100,(i-1)*12+15,(String)allBoard->get(i)->isConnected());
+			Heltec.display->drawString(112,(i-1)*12+15,(String)allBoard->get(i)->waitforResponse);
 		}
+		
 		
 		break;
 	case 5:
@@ -1159,13 +1168,14 @@ void onReceive(int packetSize)
 		Serial.println("message pas pour moi");
 		return;                             // skip rest of function
 	}
-	
+	receivedMessage.RSSI = LoRa.packetRssi();
 
 	board *test = searchBoardById(receivedMessage.sender);
 	Serial.println(test->Name);
 	test->lastmessage = millis();
 	test->LastMessage = receivedMessage;
 	test->newMessage = true;
+	
 	
 	Heltec.display->println("0x" + String(receivedMessage.sender,HEX) + " to 0x" + String(receivedMessage.recipient, HEX) );
 	
@@ -1272,6 +1282,7 @@ void gestionPower(void){
 }
 
 void handleMode(){
+	
 	switch (Mode)
 	{
 	case initSTA:
@@ -1440,13 +1451,56 @@ void handleMode(){
 			}
 			if (modeWifi[menuModeWifi.select]== "ScanWifi")
 			{
-				// TODO Mode = mode:: ;
+				Mode = mode::StartScanWifi ;
 			}
 			
 
 		}
 		
 		Heltec.display->display();
+		break;
+	case mode::StartScanWifi:
+		
+		WiFi.mode(WIFI_STA);
+		WiFi.disconnect();
+		delay(100);
+		
+		WiFi.scanNetworks(true);
+		Heltec.display->clear();
+		Heltec.display->drawString(10,10,"Scanning Wifi");
+		Heltec.display->display();
+		delay(200);
+		Mode = mode::SchowScanWifi;
+		
+		
+		break;
+	case mode::SchowScanWifi:
+		int n;
+		n = WiFi.scanComplete();
+		if (n == -1 || n ==-2 )
+		{
+			break;	
+		}
+		
+		Heltec.display->clear();
+		if (n == 0) {
+			Serial.println("no networks found");
+		} else {
+			for (int i = 0; i < n; ++i) {
+				// Print SSID and RSSI for each network found
+				Heltec.display->drawString(0,i*12,String(i + 1));
+				Heltec.display->drawString(5,i*12,(String)": ");
+				Heltec.display->drawString(10,i*12,(String)WiFi.SSID(i));
+				
+				Heltec.display->drawString(90,i*12,"("+(String)WiFi.RSSI(i)+")");
+				
+				Heltec.display->drawString(115,i*12,(WiFi.encryptionType(i) == WIFI_AUTH_OPEN)?" ":"*");
+				delay(10);
+			}
+		}
+		Heltec.display->display();
+		delay(5000);
+		Mode = mode::initSTA;
 		break;
 	case mode::testbutton:	//TODO Remove This
 		testbtn->loop();
@@ -1505,11 +1559,21 @@ void setup() {
 		
 	});
 	
-	Heltec.begin(true, true, true, true, BAND);
+	Heltec.begin(true, false, true, true, BAND);
 	// InitSD();
 	// initWifi();
-
+	Heltec.display->display();
 	
+	
+	SPI.begin(SCK,MISO,MOSI,SS);
+	LoRa.setPins(SS,RST_LoRa,DIO0);
+	while (!LoRa.begin(868E6))
+	{
+		Serial.println("erreur lora");
+		delay(1000);
+	}
+	
+	LoRa.setTxPower(20);
 	Heltec.display->clear();
 	
 	
@@ -1539,6 +1603,7 @@ void setup() {
 	LoRa.setSpreadingFactor(8);
 	LoRa.setSyncWord(0x12);
 	LoRa.setSignalBandwidth(125E3);
+	//LoRa.setTxPower(17,PA_OUTPUT_PA_BOOST_PIN);
 	LoRa.onReceive(onReceive);
 	
 	LoRa.receive();
@@ -1546,7 +1611,7 @@ void setup() {
 	Serial.println("Heltec.LoRa init succeeded.");
 	delay(200);
 	Heltec.display->clear();
-	Heltec.display->flipScreenVertically();
+	//Heltec.display->flipScreenVertically();
 	Heltec.display->setLogBuffer(5, 100);
 
 	
