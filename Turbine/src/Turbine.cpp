@@ -58,7 +58,7 @@ int MoteurPWM = 0;
  */
 long ouvertureMax = 2000;
 int incCodeuse = 400;
-float tourMoteurVanne = 18 / float(44); 
+float tourMoteurVanne = 14 / float(44); 
 
 // Taquimetre
 unsigned long previousMillisTaqui = 0;
@@ -157,6 +157,11 @@ State state_POM(NULL,[](){
   if (FCVanneFermee.isReleased() && state == 0 && state !=4) {
     state = 1;
   }
+  if (state == 3)
+  {
+    state = 4;
+  }
+  
   if (FCVanneFermee.isPressed() && state !=0 && state  !=4)
   {
     state = 3;
@@ -183,7 +188,7 @@ State state_POM(NULL,[](){
     break;
   case 3:
     MoteurPWM = 0;
-    state = 4;
+    //state = 4;
     break;
   case 4:
     pom_success = true;
@@ -202,6 +207,7 @@ State state_POM(NULL,[](){
   }
   
   display->drawString(0,0,"State, "+ String(state));
+  display->drawString(0,20,"Intensite: " + (String)currentValue);
   display->display();
 },NULL,"POM");
 State state_OuvertureTotale(NULL,[](){
@@ -307,7 +313,7 @@ void initTransition(){
   },NULL);
 }
 void IRAM_ATTR isrEncodA(void){
-  if (millis() - dernieredetectionEncodA > 1)
+  if (millis() - dernieredetectionEncodA > 0)
   {
     if (digitalRead(pinEncodeurB) == HIGH)
     {
@@ -323,7 +329,7 @@ void IRAM_ATTR isrEncodA(void){
   
 }
 void IRAM_ATTR isrEncodB(void){
-  if (millis() - dernieredetectionEncodB > 1)
+  if (millis() - dernieredetectionEncodB > 0)
   {
     countEncodB++;
     
@@ -473,7 +479,8 @@ void displayData() {
 			Heltec.display->drawString(64, 0, "EB: " + String(countEncodB));
 
 			Heltec.display->drawString(0, 15, "posMoteur: " + String(posMoteur));
-			Heltec.display->drawString(0, 27, "consigne: " + String(Setpoint));
+			Heltec.display->drawString(0, 25, "consigne: " + String(Setpoint));
+			
 			
 			
 		
@@ -492,7 +499,7 @@ void displayData() {
 			
 			Heltec.display->drawString(80,46,String(pPosMoteur()*100)+"%");
 			Heltec.display->drawString(0, 46, "consigne: " + String(Setpoint));
-			Heltec.display->drawString(5+((posMoteur)*120) /2000, 42, "^");
+			Heltec.display->drawString(5+((Setpoint)*120) /ouvertureMax, 42, "^");
 			
 			Heltec.display->drawProgressBar(5,30,120,10,pPosMoteur()*100);
 			Heltec.display->drawString(5, 55, FCVanneFermee.isPressed() ? "*" : "");
