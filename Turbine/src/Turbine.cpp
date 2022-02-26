@@ -152,19 +152,21 @@ State state_POM(NULL,[](){
   static int state = -1;
   unsigned long timerPOM = 0;
   display->clear();
-  if (FCVanneFermee.isPressed() && state == 0)
-  {
-    state = 0;
+  if (state == -1){
+    timerPOM = millis();
+    state =0;
   } 
-  if (FCVanneFermee.isReleased() && state == 0 && state !=4) {
-    state = 1;
-  }
+   
   if (state == 3)
   {
     state = 4;
   }
+  if (state ==0 && FCVanneFermee.isReleased())
+  {
+    state = 1;
+  }
   
-  if (FCVanneFermee.isPressed() && state !=0 && state  !=4)
+  if (FCVanneFermee.isPressed() && state !=0 && state  !=4 && state !=-1)
   {
     state = 3;
     
@@ -203,11 +205,13 @@ State state_POM(NULL,[](){
   case 5:
     MoteurPWM = 0;
     Heltec.display->drawString(0,40,"Erreur POM");
+    break;
   default:
     Serial.println("defaul");
     break;
   }
-  
+  display->drawString(10,50,(String)FCVanneFermee.getState());
+  display->drawString(60,50,(String)FCVanneOuverte.getState());
   display->drawString(0,0,"State, "+ String(state));
   display->drawString(0,20,"Intensite: " + (String)currentValue);
   display->display();
