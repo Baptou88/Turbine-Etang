@@ -81,7 +81,7 @@ Preferences preferences;
 Adafruit_INA260 ina260 = Adafruit_INA260();
 double currentValue = 0;
 unsigned long previousMesureIntensite = 0;
-int maxIntensite = 3000; //mA
+int maxIntensite = 9000; //mA
 
 byte displayMode = 0;
 
@@ -152,17 +152,11 @@ State state_POM(NULL,[](){
   static int state = -1;
   unsigned long timerPOM = 0;
   display->clear();
-  if (state == -1){
-   timerPOM = millis();
-   state =0;
-   if (FCVanneFermee.isPressed()  )
+  if (FCVanneFermee.isPressed() && state == 0)
   {
     state = 0;
   } 
-  }
-    
-
-  if (FCVanneFermee.isReleased() && state ==0 ) {
+  if (FCVanneFermee.isReleased() && state == 0 && state !=4) {
     state = 1;
   }
   if (state == 3)
@@ -170,7 +164,7 @@ State state_POM(NULL,[](){
     state = 4;
   }
   
-  if (FCVanneFermee.isPressed() && state !=0 && state !=4 && state !=-1)
+  if (FCVanneFermee.isPressed() && state !=0 && state  !=4)
   {
     state = 3;
     
@@ -184,7 +178,10 @@ State state_POM(NULL,[](){
   
   switch (state)
   {
-    
+    case -1:
+    timerPOM = millis();
+    state = 0;
+    break;
   case 0:
     MoteurPWM = 255;
     break;
@@ -201,7 +198,7 @@ State state_POM(NULL,[](){
     posMoteur = 0;
     countEncodA = 0;
     countEncodB = 0;
-    Serial.println("POM ok " + String(millis()));
+    Serial.println(millis());
     break;
   case 5:
     MoteurPWM = 0;
@@ -276,7 +273,7 @@ void initTransition(){
     return !do_send_msg;
   }, NULL);
   fsm.add_transition(&state_INIT,&state_AUTO,[](unsigned long duration){
-    return esp_sleep_get_wakeup_cause()== ESP_SLEEP_WAKEUP_TIMER || PrgButton->isPressed();
+    return esp_sleep_get_wakeup_cause()== ESP_SLEEP_WAKEUP_TIMER;
   },NULL);
   fsm.add_transition(&state_AUTO,&state_OuvertureTotale,[](unsigned long duration){
     return do_ouvertureTotale;
