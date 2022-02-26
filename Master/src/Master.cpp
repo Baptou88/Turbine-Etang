@@ -85,7 +85,7 @@ board EtangBoard("Etang", ETANG);
 
 board TurbineBoard("Turbine", TURBINE);
 
-//board RadiateurBoard("Radiateur", Radiateur);
+board RadiateurBoard("Radiateur", Radiateur);
 
 //board *allBoard[3] = {  &localboard, &EtangBoard , &TurbineBoard};
 String  modeWifi[] = {"AP", "STA","ScanWifi"};
@@ -437,6 +437,9 @@ void InitBoard(void) {
 	localboard.AddCommand("ClearData", "button", "CDATA");
 	localboard.AddCommand("Save data","button","SDATA2");
 	localboard.AddCommand("Intervalle msg (ms)", "number","ITMSG",String(intervalleEnvoi));
+
+	RadiateurBoard.AddCommand("Radiateur1","button","rad1");
+	RadiateurBoard.AddCommand("Radiateur2","button","rad2");
 }
 bool saveData(void ){
 	DynamicJsonDocument doc(100000);
@@ -1535,7 +1538,7 @@ void setup() {
 	allBoard->add(&localboard);
 	allBoard->add(&TurbineBoard);
 	allBoard->add(&EtangBoard);
-	//allBoard->add(&RadiateurBoard);
+	allBoard->add(&RadiateurBoard);
 	
 	Logger::instance().setSerial(&Serial);
 	

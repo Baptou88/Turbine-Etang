@@ -657,6 +657,8 @@ void setup() {
   // put your setup code here, to run once:
   Heltec.begin(true,true,true,true,868E6);
 
+  Serial1.begin(115200, SERIAL_8N1, 2, 17);
+
   //Sortie Moteur
   pinMode(pinMoteurO,OUTPUT);
   pinMode(pinMoteurF,OUTPUT);
@@ -753,7 +755,11 @@ void loop() {
     }
   }
   
-  
+  if(Serial1.available()){
+    Serial.print("[Se1]: ");
+    String s = Serial1.readStringUntil('\r');
+    Serial.println(s);
+  }
  
 
   myPID.Compute();

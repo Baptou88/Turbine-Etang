@@ -4,7 +4,7 @@
 
 
 
-
+#include "digitalOutput.h"
 #include "TurbineEtangLib.h"
 
 
@@ -12,7 +12,8 @@
 
 
 
-
+digitalOutput rad1(12);
+digitalOutput rad2(13);
 
 Message receivedMessage;
 byte localAddress = RADIATEUR;
@@ -63,6 +64,33 @@ void mesureSysteme(){
    current_mA = ina219.getCurrent_mA();   
    current_mA_2 = ina219_2.getCurrent_mA();
 }
+void TraitementCommande(String cmd){
+  Serial.println("TraitementCMD: " + String(cmd));
+  if (cmd.startsWith("rad"))
+  {
+    Serial.println("rad");
+    cmd.replace("rad","");
+    Serial.println(cmd);
+    if (cmd.startsWith("1"))
+    {
+      Serial.println("toggle 1");
+      cmd.replace("1","");
+      rad1.toggle();
+    }
+    if (cmd.startsWith("2"))
+    {
+      Serial.println("toggle 2");
+      cmd.replace("2","");
+      rad2.toggle();
+    }
+    
+  }
+  
+}
+void gestionSorties(void){
+  rad1.loop();
+  rad2.loop();
+}
 void setup() {
   // put your setup code here, to run once:
   Heltec.begin(true,true,true,true,868E6);
@@ -77,13 +105,13 @@ void setup() {
   LoRa.receive();
 
   if (! ina219.begin()) {
-    Serial.println("Failed to find INA219 chip");
+    Serial.println("Failed to find INA219 chip 1");
     while (1) { delay(10); }
   }
-  if (! ina219_2.begin()) {
-    Serial.println("Failed to find INA219 chip");
-    while (1) { delay(10); }
-  }
+  // if (! ina219_2.begin()) {
+  //   Serial.println("Failed to find INA219 chip 2");
+  //   while (1) { delay(10); }
+  // }
 
   pinMode(2,INPUT);
   for (size_t i = 0; i < 10; i++)
@@ -103,7 +131,7 @@ void loop() {
   if (newMessage)
   {
     newMessage = false;
-    
+    TraitementCommande(receivedMessage.Content);
     sendMessage(MASTER,"ok");
     LoRa.receive();
   }
@@ -118,9 +146,16 @@ void loop() {
   Heltec.display->drawString(0,30,(String)current_mA_2 + " mA");
   Heltec.display->drawString(50,50,(String)wcs_a + " A");
   Heltec.display->drawString(0,50,(String)wcs_vol + " V");
+  
+  Heltec.display->drawString(60,0,"1 "+ String(rad1.getState()));
+  Heltec.display->drawString(60,10,"2 "+ String(rad2.getState()));
+  
   Heltec.display->display();
+
+ 
   
 
+  gestionSorties();
 
   
   delay(100);

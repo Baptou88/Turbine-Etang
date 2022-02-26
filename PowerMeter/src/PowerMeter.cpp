@@ -18,6 +18,8 @@ void mesureSysteme(void){
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200);
+  Serial1.begin(115200, SERIAL_8N1, 17, 2);
+  
   if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3c)) {
     Serial.println(F("SSD1306 allocation failed"));
     for(;;); // Don't proceed, loop forever
@@ -44,5 +46,13 @@ void loop() {
   display.print(String(tensionValue) + " V");
   display.display();
   Serial.println(currentValue);
+  
+  static unsigned long previousSend = 0;
+  if (millis()-previousSend >5000)
+
+  {
+    Serial1.println("voltage:" + String(tensionValue));
+  }
+
   delay(200);
 }
