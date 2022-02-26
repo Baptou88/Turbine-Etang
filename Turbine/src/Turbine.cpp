@@ -43,7 +43,9 @@ bool do_send_msg = false;
 bool do_ouvertureTotale = false;
 bool do_fermetureTotale = false;
 //Define Variables we'll be connecting to
-double Setpoint, posMoteur, Output;
+double  Output;
+RTC_DATA_ATTR double posMoteur;
+RTC_DATA_ATTR double Setpoint;
 
 double Kp=2.2, Ki=0.0, Kd=0.4;
 PID myPID(&posMoteur, &Output, &Setpoint, Kp, Ki, Kd, DIRECT);
@@ -173,7 +175,7 @@ State state_POM(NULL,[](){
     state = 3;
     
   }
-  if (((currentValue > maxIntensite) || (millis() - timerPOM > 30000)) && state !=0 && (state !=-1))
+  if (((currentValue > maxIntensite) || (millis() - timerPOM > 45000)) && state !=0 && (state !=-1))
   {
     state = 5;
   }
