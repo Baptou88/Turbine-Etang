@@ -23,6 +23,9 @@
         {
             "name": "TurbineEtangLib",
             "path": "librairies\\TurbineEtangLib"
+        },
+        {
+            "path": "PowerMeter"
         }
     ],
     "settings": {

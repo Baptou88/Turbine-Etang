@@ -1272,13 +1272,13 @@ void InitSD(void) {
 
 
 void gestionPower(void){
-	if (millis()- lastBatterycheck >=  + 15000)
+	if (millis()- lastBatterycheck >=  + 10000)
    {
 	   lastBatterycheck = millis();
 	   lastBatteryVoltage = battery_voltage;
 	   battery_voltage = analogRead(37)*XS*MUL; //37
    }
-   Heltec.VextON();
+   //Heltec.VextON();
 }
 
 void handleMode(){
@@ -1628,8 +1628,8 @@ void setup() {
 	
 
 	//battery power
-	//adcAttachPin(13);
-	//analogSetClockDiv(255); // 1338mS
+	adcAttachPin(13);
+	analogSetClockDiv(255); // 1338mS
 	
 	
 }
@@ -1648,7 +1648,7 @@ void loop() {
 
 
    
-	//gestionPower();
+	gestionPower();
    
 
 	for (size_t i = 1; i < allBoard->size(); i++)
