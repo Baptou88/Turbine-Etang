@@ -13,7 +13,7 @@ Adafruit_SSD1306 display(128, 64, &Wire);
 
 void mesureSysteme(void){
   currentValue = (analogRead(pinCurrentSensor));//-1846)*0.032;
-  tensionValue = analogRead(pinTensionSensor)*0.31;
+  tensionValue = analogRead(pinTensionSensor)*0.07;
 }
 void setup() {
   // put your setup code here, to run once:
