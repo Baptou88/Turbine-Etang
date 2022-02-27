@@ -27,7 +27,7 @@ byte pinEncodeurB = 37;
 #define pinTaqui 32
 
 digitalInput FCVanneOuverte(39,INPUT_PULLUP); 
-digitalInput FCVanneFermee(38,INPUT_PULLDOWN);
+digitalInput FCVanneFermee(38,INPUT_PULLUP);
 digitalInput* PrgButton= new digitalInput(0,INPUT_PULLUP);
 
 //encodeur
@@ -268,9 +268,9 @@ State state_param(NULL,[](){
 
 void initTransition(){
   fsm.add_timed_transition(&state_INIT,&state_POM,2000, NULL);
-  // fsm.add_transition(&state_INIT, &state_AUTO,[](unsigned long duration){
-  //   return PrgButton->isPressed();
-  // },NULL);
+  fsm.add_transition(&state_INIT, &state_AUTO,[](unsigned long duration){
+    return PrgButton->isPressed();
+  },NULL);
   fsm.add_transition(&state_POM,&state_AUTO,[](unsigned long duration){
     return pom_success;
   },NULL);
@@ -359,6 +359,7 @@ void TraitementCommande(String c){
 		//doc["StatutVanne"] = StatutVanne;
 		doc["OuvCodeur"] = posMoteur;
 		doc["OuvMaxCodeur"] = ouvertureMax;
+    doc["Tension"] = generatrice_voltage;
     doc["State"] = fsm.getActiveState()->Name;
 		serializeJson(doc,json);
 		Serial.println(json);
