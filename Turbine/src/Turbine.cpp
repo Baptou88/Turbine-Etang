@@ -40,6 +40,10 @@ unsigned long dernieredetectionEncodB  = 0;
 bool pom_success = false;
 bool do_send_msg = false;
 
+//generatrice
+float generatrice_voltage = 0;
+float generatrice_current = 0;
+
 bool do_ouvertureTotale = false;
 bool do_fermetureTotale = false;
 //Define Variables we'll be connecting to
@@ -657,6 +661,35 @@ void EvolutionGraphe(void){
 IRAM_ATTR void isrTaqui(void){
  countTaqui++;
 }
+void TraitementSerial2(String s){
+  while (s.indexOf(";")!= -1)
+  {
+    String part1;
+    String part2;
+    
+    part1 = s.substring(0,s.indexOf("="));
+    part2 = s.substring(s.indexOf("=")+1 , s.indexOf(";"));
+    
+    Serial.println("p1:   "+ part1);
+    Serial.println("p2:   "+ part2);
+    //s.replace(part1+"="+part2+";","");
+    s.remove(0,s.indexOf(";")+1);
+    Serial.println("restant +" + s + "+");
+    
+    if (part1.equalsIgnoreCase("voltage"))
+    {
+      generatrice_voltage = part2.toFloat();
+    }
+    if (part1.equalsIgnoreCase("current"))
+    {
+      generatrice_current = part2.toFloat();
+    }
+    
+    
+  }
+  
+  Serial.println("finf" + s);
+}
 void setup() {
   // put your setup code here, to run once:
   Heltec.begin(true,true,true,true,868E6);
@@ -762,7 +795,7 @@ void loop() {
   if(Serial1.available()){
     Serial.print("[Se1]: ");
     String s = Serial1.readStringUntil('\r');
-    Serial.println(s);
+    TraitementSerial2(s);
   }
  
 
