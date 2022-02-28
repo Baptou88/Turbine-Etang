@@ -252,12 +252,14 @@ function maj(){
           }
         } else if (myObj.boards[i].Name == "Turbine") {
           var message = myObj.boards[i].lastMessage.content
-          
+          var turbineBlock = document.querySelector('#board-11')
+          var setpoint = turbineBlock.querySelector('#setPointSlider')
+          console.log("setpoint: ",setpoint);
           var x = (new Date()).getTime()
           
           var yn = message.Ouverture * 100
           var zn = message.Setpoint * 100
-
+          setpoint.value = zn;
           var barProgress = document.querySelector(".progress-bar")
           barProgress.style.width = yn + '%'
             //ajout donnée niveau dans graph
@@ -291,7 +293,7 @@ function maj(){
   };
   xhr.open("GET", "/maj", true);
   xhr.send();
-  setTimeout(maj,10000);
+  setTimeout(maj,5000);
 }
 
 function majTimer(){

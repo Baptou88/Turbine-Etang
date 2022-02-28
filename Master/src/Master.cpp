@@ -99,6 +99,7 @@ menu menuStationWifi(2,2,encodRight,encodLeft);
 LList<board*> *allBoard = new  LList<board*>();
 
 LList<ProgrammatedTask*> *ProgrammatedTasks = new LList<ProgrammatedTask*>();
+String ProgrammatedTaskFile = "/Programmated";
 
 unsigned long lastDemandeStatut = 0;
 unsigned long previouscheckTask = 0;
@@ -198,7 +199,7 @@ String processor(const String& var) {
 		for (byte i = 0; i < allBoard->size(); i = i + 1) {
 			retour += "<div class=\"card mb-2\" id=\"board-"+ String(allBoard->get(i)->localAddress) + "\">\n";
 			retour += "<div class=\"card-header\">";
-			retour += "<h4 class= \"card-title\">" + String(allBoard->get(i)->Name) + " <span class=\"text-muted\"> " + String(allBoard->get(i)->localAddress, HEX) +   " " + String(allBoard->get(i)->isConnected()) + "</span></h4>\n";
+			retour += "<h4 class= \"card-title\">" + String(allBoard->get(i)->Name) + " <span class=\"text-muted\"> " + String(allBoard->get(i)->localAddress, HEX) +   " " + String(allBoard->get(i)->isConnected()) + " " + String(allBoard->get(i)->LastMessage.RSSI) + " dB"+ "</span></h4>\n";
 			retour += "</div>";
 			retour += "<div class=\"spinner-border\" role=\"status\" style=\"display:none\">\n<span class=\"visually-hidden\">Loading...</span>\n</div>";
 			retour += "<div class = \"card-body\">\n";
@@ -224,8 +225,8 @@ String processor(const String& var) {
 					} else if (temp->Commands->get(j).Type == "range")
 					{
 						retour += "<div class=\"input-group mb-3\">\n";
-						retour += "\t<label for=\"timerSlider\" class=\"form-label\">"+ temp->Commands->get(j).Name + "</label>\n";
-						retour += "\t<input type=\""+ temp->Commands->get(j).Type + "\" onchange=\"update(this,"+ "'"+temp->Commands->get(j).Action +"'+'=' +this.value)\" id=\"timerSlider\" min=\"0\" max=\"100\" value=\""+temp->Commands->get(j).Value +"\" step=\"1\" class=\"form-range\">\n";
+						retour += "\t<label for=\"setPointSlider\" class=\"form-label\">"+ temp->Commands->get(j).Name + "</label>\n";
+						retour += "\t<input type=\""+ temp->Commands->get(j).Type + "\" onchange=\"update(this,"+ "'"+temp->Commands->get(j).Action +"'+'=' +this.value)\" id=\"setPointSlider\" min=\"0\" max=\"100\" value=\""+temp->Commands->get(j).Value +"\" step=\"1\" class=\"form-range\">\n";
 						retour += "</div>\n";
 					}
 					else if (temp->Commands->get(j).Type == "progress")
@@ -329,8 +330,8 @@ String processor(const String& var) {
 			retour += "<input type=\"time\" id=\"appt\" name=\"appt\"  value= \"\%ProgrammatedTasks" + String(i) + ":getHours\%" + ":" + "\%ProgrammatedTasks" + String(i) + ":getMinutes\%" +"\"  required>\n";
 			retour += "<label for=\"customRange1\" class=\"form-label\">Example range</label>";
 			retour += "<input type=\"range\" value=\"\%ProgrammatedTasks" + String(i) + ":targetVanne\%" + "\" name=\"targetVanne\" class=\"form-range\" id=\"customRange1\">";
-			retour += "<label for=\"appte\">DeepSleep (ms) :</label>\n";
-			retour += "<input type=\"number\" id=\"appte\" name=\"appt\"  value= \"\%ProgrammatedTasks" + String(i) + ":deepsleep\%"  +"\"  required>\n";
+			retour += "<label for=\"deepsleep\">DeepSleep (ms) :</label>\n";
+			retour += "<input type=\"number\" id=\"appte\" name=\"deepsleep\"  value= \"\%ProgrammatedTasks" + String(i) + ":deepsleep\%"  +"\"  required>\n";
 			retour += "<button class=\"btn btn-primary\" type=\"submit\">Mettre a jour</button>";
 			retour += "<a href=\"/programmateur/?delete="+(String) i +"\" class=\"btn btn-danger\">Supprimer</a>";
 			retour += "</form>";
@@ -441,6 +442,7 @@ void InitBoard(void) {
 	RadiateurBoard.AddCommand("Radiateur1","button","rad1");
 	RadiateurBoard.AddCommand("Radiateur2","button","rad2");
 }
+
 bool saveData(void ){
 	DynamicJsonDocument doc(100000);
 	JsonObject obj;
@@ -582,7 +584,79 @@ board* searchBoardById(int id) {
 	//return allBoard->get(0);
 	return 0;
 }
+void lireTacheProgrammer(void){
+	if (!SPIFFS.exists(ProgrammatedTaskFile))
+	{
+		return;
+	}
+	
+	File test = SPIFFS.open(ProgrammatedTaskFile,"r");
+	while (test.available()) {
+		String a =test.readStringUntil('\n');
+		if (a!="")
+		{
+			logPrintlnE(a);
+			String name = "";
+			byte h = 0;
+			byte m = 0;
+			bool activ = false;
+			int targetVanne = 0;
+			double deepsleep = 0;
 
+			while (a.indexOf(";") !=-1)
+			{
+				String part1 = a.substring(0,a.indexOf("="));
+    			String part2 = a.substring(a.indexOf("=")+1 , a.indexOf(";"));
+				
+				a.remove(0,a.indexOf(";")+1);
+
+				if (part1 == "name")
+				{
+					name = part2;
+				}
+				if (part1 == "h")
+				{
+					h = part2.toInt();
+				}
+				if (part1 == "m")
+				{
+					m = part2.toInt();
+				}
+				if (part1 == "activate")
+				{
+					activ = part2.toInt();
+				}
+				if (part1 == "targetVanne")
+				{
+					targetVanne = part2.toInt();
+				}
+				
+				if (part1 == "deepsleep")
+				{
+					deepsleep = part2.toDouble();
+				}
+				
+			}
+			
+			ProgrammatedTask *ajout = new ProgrammatedTask(h,m,name);
+			if (activ)
+			{
+				ajout->activate();
+			} else
+			{
+				ajout->deactivate();
+			}
+			ajout->deepsleep = deepsleep;
+			ajout->targetVanne = targetVanne;
+			
+			ProgrammatedTasks->add(ajout);
+			
+		}
+		
+		
+	}
+	test.close();
+}
 void RouteHttpSTA() {
 	serverHTTP.onNotFound([](AsyncWebServerRequest* request) {
 		request->send_P(404, "text/html", "404 notfound");
@@ -680,6 +754,24 @@ void RouteHttpSTA() {
 		//request->send(SPIFFS,"/programmateur.html", "text/html", false, processor);
 		request->redirect("/programmateur");
 		});
+	serverHTTP.on("/programmateur/sauvegarder", HTTP_GET, [](AsyncWebServerRequest* request) {
+		File file = SPIFFS.open(ProgrammatedTaskFile,"w+");
+
+		for (size_t i = 0; i < ProgrammatedTasks->size(); i++)
+		{
+			ProgrammatedTask *test = ProgrammatedTasks->get(i);
+			
+			file.print("name=" + String(test->name) + ";");
+			file.print("h=" + String(test->h) + ";");
+			file.print("m=" + String(test->m) + ";");
+			file.print("activate=" + String(test->isActive()) + ";");
+			file.print("targetVanne=" + String(test->targetVanne) + ";");
+			file.println("deepsleep=" + String(test->deepsleep) + ";");
+		}
+		file.close();
+		
+		request->send(SPIFFS,ProgrammatedTaskFile,"text/plaintext");
+		});
 	
 	serverHTTP.on("/programmateur", HTTP_GET, [](AsyncWebServerRequest* request) {
 		if (request->hasParam("delete"))
@@ -747,6 +839,11 @@ void RouteHttpSTA() {
 		{
 			test->targetVanne = request->getParam("targetVanne",true)->value().toInt();
 		}
+		if (request->hasParam("deepsleep",true))
+		{
+			test->deepsleep = request->getParam("deepsleep",true)->value().toDouble();
+		}
+		
 		
 		
 		
@@ -763,6 +860,19 @@ void RouteHttpSTA() {
 		});
 	serverHTTP.on("/icons/logo-192.png", HTTP_GET, [](AsyncWebServerRequest* request) {
 		request->send(SPIFFS, "/icons/logo-192.png", "application/javascript");
+		});
+	serverHTTP.on("/icons/Energy-icons_hydro-electricity-512.svg", HTTP_GET, [](AsyncWebServerRequest* request) {
+		Serial.println("svg ===========");
+		request->send(SPIFFS, "/icons/Energy-icons_hydro-electricity-512.svg", "image/svg");
+		});
+	serverHTTP.on("/favicon.png", HTTP_GET, [](AsyncWebServerRequest* request) {
+		Serial.println("ico ===========");
+		if (SPIFFS.exists("/favicon.png"))
+		{
+			Serial.println("ok");
+		}
+		
+		request->send(SPIFFS,"/favicon.png","image/png");
 		});
 	serverHTTP.on("/service-worker.js", HTTP_GET, [](AsyncWebServerRequest* request) {
 		request->send(SPIFFS, "/service-worker.js", "application/javascript");
@@ -781,7 +891,7 @@ void RouteHttpSTA() {
 	serverHTTP.on("/websocket.js", HTTP_GET, [](AsyncWebServerRequest* request){
 		request->send(SPIFFS, "/websocket.js", "application/javascript");
 	});
-	Serial.println("Configuration Route ok");
+	Serial.println("Configuration Route STA ok");
 	
 	
 }
@@ -1529,11 +1639,7 @@ void acquisitionEntree(void){
 // the setup function runs once when you press reset or power the board
 void setup() {
 	
-	ProgrammatedTasks->add(new ProgrammatedTask(18,0,"test1"));
-	ProgrammatedTasks->add(new ProgrammatedTask(21,00,"DeepSleep"));
-
-	ProgrammatedTasks->get(1)->activate();
-	ProgrammatedTasks->get(1)->deepsleep = 43200000;
+	
 
 	allBoard->add(&localboard);
 	allBoard->add(&TurbineBoard);
@@ -1634,6 +1740,7 @@ void setup() {
 	adcAttachPin(13);
 	analogSetClockDiv(255); // 1338mS
 	
+	lireTacheProgrammer();
 	
 }
 

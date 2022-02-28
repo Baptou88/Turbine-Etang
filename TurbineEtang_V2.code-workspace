@@ -67,7 +67,16 @@
             "limits": "cpp",
             "shared_mutex": "cpp",
             "mutex": "cpp",
-            "thread": "cpp"
+            "thread": "cpp",
+            "optional": "cpp",
+            "system_error": "cpp",
+            "type_traits": "cpp",
+            "xlocmon": "cpp",
+            "xlocnum": "cpp",
+            "xtr1common": "cpp",
+            "ratio": "cpp",
+            "tuple": "cpp",
+            "xlocale": "cpp"
         }
     }
 }
