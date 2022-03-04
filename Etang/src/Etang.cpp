@@ -501,6 +501,28 @@ void TraitementCommande(String Commande){
 		timingBudget = Commande.toInt();
 		vl53l1x.setMeasurementTimingBudget(timingBudget);
 	}
+	if (Commande.startsWith("DistanceMode="))
+	{
+		Commande.replace("DistanceMode=","");
+		//VL53L1X::DistanceMode dm = Commande.toDouble();
+		//DistanceMode dm = Commande;
+		switch (Commande.toInt())
+		{
+		case 0:
+			vl53l1x.setDistanceMode(VL53L1X::Short);
+			break;
+		case 1:
+			vl53l1x.setDistanceMode(VL53L1X::Medium);
+			break;
+		case 2:
+			vl53l1x.setDistanceMode(VL53L1X::Long);
+			break;
+		
+		default:
+			break;
+		}
+	}
+	
 	
 }
 void onReceive(int packetSize)
