@@ -280,6 +280,9 @@ void EnvoyerMsgStatut(void){
 	doc["mesure"] = vl53l1x.ranging_data.range_mm;
 	doc["Niveau"] = PNiveau();
 	doc["RangeStatus"] = VL53L1X::rangeStatusToString( vl53l1x.ranging_data.range_status);
+	doc["distanceMode"] = vl53l1x.getDistanceMode();
+	doc["minEtang"] = NiveauMin;
+	doc["maxEtang"] = NiveauMax;
 	doc["temp"] = temp;
 	doc["pressure"] = pressure;
 	

@@ -420,6 +420,9 @@ void InitBoard(void) {
 	EtangBoard.AddCommand("SetMin", "button", "SMIN");
 	EtangBoard.AddCommand("Veille","button","SLEEP");
 	EtangBoard.AddCommand("Veille2","button","SLEEPTP");
+	EtangBoard.AddCommand("Distance mode Short","button","DistanceMode=0");
+	EtangBoard.AddCommand("Distance mode medium","button","DistanceMode=1");
+	EtangBoard.AddCommand("Distance mode Long","button","DistanceMode=2");
 
 	TurbineBoard.AddCommand("OuvertureTotale", "button", "OT");
 	TurbineBoard.AddCommand("FermetureTotale", "button", "FT");

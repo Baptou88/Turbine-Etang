@@ -15,6 +15,9 @@
 digitalOutput rad1(12);
 digitalOutput rad2(13);
 
+#define pinSCT013 35
+long currencSCT013 = 0;
+
 Message receivedMessage;
 byte localAddress = RADIATEUR;
 bool newMessage = false;
@@ -63,6 +66,8 @@ void onReceive(int packetSize){
 void mesureSysteme(){
    current_mA = ina219.getCurrent_mA();   
    current_mA_2 = ina219_2.getCurrent_mA();
+
+  currencSCT013 = analogRead(pinSCT013);
 }
 void TraitementCommande(String cmd){
   Serial.println("TraitementCMD: " + String(cmd));
@@ -124,6 +129,8 @@ void setup() {
   offset_A = ((offset_A/10)*3.3)/4095;
   Serial.println(offset_A);
 
+
+pinMode(pinSCT013,INPUT);
 }
 
 void loop() {
@@ -141,7 +148,7 @@ void loop() {
 
   Heltec.display->clear();
   Heltec.display->drawString(0,0,(String)current_mA + " mA");
-  // Heltec.display->drawString(0,0,(String)ina219.getBusVoltage_V()+ " V");
+  Heltec.display->drawString(0,15,"SCT013 "+(String)currencSCT013);
   // Heltec.display->drawString(0,0,(String)ina219.getShuntVoltage_mV()+ " V");
   Heltec.display->drawString(0,30,(String)current_mA_2 + " mA");
   Heltec.display->drawString(50,50,(String)wcs_a + " A");
