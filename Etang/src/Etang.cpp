@@ -238,7 +238,8 @@ void drawBattery(uint16_t voltage, bool sleep) {
 
 void displayData(void)
 {
-	
+	uint8_t h =0;
+	uint8_t w=0;
 	switch (displayMode)
 	{
 	case 0:
@@ -266,6 +267,12 @@ void displayData(void)
 		drawBattery(voltage, voltage < LIGHT_SLEEP_VOLTAGE);
 		Heltec.display->drawString(0,0,"0x"+ String(localAddress,HEX));
 		Heltec.display->drawString(0,40,(String) + receivedMessage.RSSI + " dbm");
+		break;
+	case 4:
+		
+		
+		vl53l1x.getROISize(&w,&h);
+		Heltec.display->drawString(0,0,"Roi Size h:" + (String)h + " w:" + (String)w);
 		break;
 	default:
 		Heltec.display->drawString(0, 10, "erreur indice affichage" );
@@ -418,6 +425,7 @@ void mesureSysteme(void)
 	}
 	if (vl53l1x.dataReady())
 	{
+		
 		Serial.println("Niveau " + (String)vl53l1x.read(false));
 		NiveauEtang = vl53l1x.ranging_data.range_mm;
 	}
@@ -450,15 +458,43 @@ void TraitementCommande(String Commande){
 	
 	if (Commande.startsWith("SMAX"))
 	{
-		//Commande.remove(0,3);
-		NiveauMax = vl53l1x.ranging_data.range_mm;
+		Commande.replace("SMAX","");
+		
+		if (Commande.startsWith("="))
+		{
+			Commande.replace("=","");
+			Serial.println("Commande: " + (String) Commande);
+			NiveauMax = Commande.toInt();
+		}else
+		{
+			NiveauMax = vl53l1x.ranging_data.range_mm;
+		}
+		
+		
+		
 		Heltec.display->println("SET MAX ok !");
 	}
 	if (Commande.startsWith("SMIN"))
 	{
-		//Commande.remove(0,3);
-		NiveauMin = vl53l1x.ranging_data.range_mm;
+		Commande.replace("SMIN","");
+		if (Commande.startsWith("="))
+		{
+			Commande.replace("=","");
+			Serial.println("Commande: " + (String) Commande);
+			NiveauMin = Commande.toInt();
+		}else
+		{
+			NiveauMin = vl53l1x.ranging_data.range_mm;
+		}
 		Heltec.display->println("SET Min ok !");
+	}
+	if (Commande.startsWith("SROISIZE="))
+	{
+		Commande.replace("SROISIZE=","");
+		int size = Commande.toInt();
+		vl53l1x.setROISize(size,size);
+		
+		Heltec.display->println("SET roisize ok !");
 	}
 	if (Commande.startsWith("SEEPROM"))
 	{

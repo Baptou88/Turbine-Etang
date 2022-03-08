@@ -28,7 +28,7 @@ function onMessage(event) {
     try {
         var data =JSON.parse(event.data)
         var data2 = JSON.parse(event.data, function(key,value){
-            console.log(key,value);
+            //console.log(key,value);
             if (key == 'confirmationReception') {
                 console.log("confirmRecep " + value);
                 x = document.getElementById('board-' +value)
@@ -36,7 +36,7 @@ function onMessage(event) {
                 setLoading(x,false)
             }
         })
-        console.log(data);
+        //console.log(data);
         // if (data.hasOwnProperty("confirmationReception")) {
         //     console.log('confreception' , data[confirmationReception]);
         // }

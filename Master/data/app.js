@@ -61,14 +61,40 @@
 document.addEventListener('DOMContentLoaded', function () {
   var options = {
     title: { text: 'Niveau VL53L1X' },
-  subtitle: {text: 'Using I2C Interface'},
-    chart: {
-        type: 'area'
+    // subtitle: {text: 'Using I2C Interface'},
+    // chart: {
+    //     type: 'area'
+    // },
+    time: {
+      useUTC: false
+    },
+    legend: {
+      enabled: true
+    },
+    rangeSelector: {
+        buttons: [{
+            count: 1,
+            type: 'minute',
+            text: '1M'
+        }, {
+            count: 5,
+            type: 'minute',
+            text: '5M'
+        }, {
+            type: 'all',
+            text: 'All'
+        }],
+        inputEnabled: false,
+        selected: 0
     },
     title: {
         text: 'Niveau (%)'
     },
     plotOptions: {
+      series: {
+        
+        showInNavigator: true
+      },
       line: { 
         animation: false,
         dataLabels: { enabled: true }
@@ -97,7 +123,8 @@ document.addEventListener('DOMContentLoaded', function () {
     series: [ {
       name: 'niveau (%)',
       data: [],
-      color: '#05918a'
+      color: '#05918a',
+      
       },
       { 
         data:[],
@@ -114,26 +141,127 @@ document.addEventListener('DOMContentLoaded', function () {
     //   }
     ]
   };
+  var optionsrpm = {
+    title: { text: 'RPM' },
+    subtitle: {text: 'Using I2C Interface'},
+    // chart: {
+    //     type: 'area'
+    // },
+    time: {
+      useUTC: false
+    },
+    legend: {
+      enabled: true
+    },
+
+    rangeSelector: {
+        buttons: [{
+            count: 1,
+            type: 'minute',
+            text: '1M'
+        }, {
+            count: 5,
+            type: 'minute',
+            text: '5M'
+        }, {
+            type: 'all',
+            text: 'All'
+        }],
+        inputEnabled: false,
+        selected: 0
+    },
+    title: {
+        text: 'Rotation (rpm)'
+    },
+    plotOptions: {
+      line: { 
+        animation: false,
+        dataLabels: { enabled: true }
+      },
+      
+    },
+    xAxis: {
+        //categories: [],
+      type: 'datetime',
+      dateTimeLabelFormats: { second: '%H:%M:%S' }
+    },
+    yAxis: {
+        title: {
+            text: '(rpm)'
+        }
+    },
+    series: [ {
+        name: 'Rotation (rpm)',
+        data: [],
+        color: '#b2414a'
+      }
+    ]
+  };
+ 
   
   Highcharts.ajax({  
-    url: 'data.json',  
+    url: 'data.csv',  
+    dataType: 'text', 
     success: function(data) {
-      console.log( data)
-      var i = 0;
-      data.data.forEach(element => {
-        //console.log(element)
-        //console.log([i,element.niveau])
-        options.series[0].data.push([(new Date(element.time * 1000)).getTime(), element.niveauEtang* 100 ])
-        options.series[1].data.push([(new Date(element.time * 1000)).getTime(),element.ouverture*100])
-        options.series[2].data.push([(new Date(element.time * 1000)).getTime(),element.setpoint*100])
-      });
+      // console.log( data)
+      // var i = 0;
+      // data.data.forEach(element => {
+      //   //console.log(element)
+      //   //console.log([i,element.niveau])
+      //   options.series[0].data.push([(new Date(element.time * 1000)).getTime(), element.niveauEtang* 100 ])
+      //   options.series[1].data.push([(new Date(element.time * 1000)).getTime(),element.ouverture*100])
+      //   options.series[2].data.push([(new Date(element.time * 1000)).getTime(),element.setpoint*100])
+      // });
         // options.series[0].data = data;
-        chartniveautests = Highcharts.chart('chart-niveautests', options );
-        maj()
-        majTimer();
-      }  ,
-      error: function (e, t) {  
-        console.error(e, t);  
+
+      var lines = data.split('\n');
+      lines.forEach(function (line,lineNo) {
+        var items = line.split(',');
+        // header line containes categories  
+        if (lineNo == 0) {  
+          items.forEach(function(item, itemNo) {  
+              //if (itemNo > 0) options.xAxis.categories.push(item);  
+          });  
+
+        } 
+        // the rest of the lines contain data with their name in the first position  
+        else {  
+            var series = {   
+                data: []  
+            };  
+            var seriesrpm = {   
+              data: []  
+          };  
+          var dt = new Date((items[0]-3600) * 1000).getTime();
+          optionsrpm.series[0].data.push([dt,parseFloat(items[1])]);
+          options.series[0].data.push([dt,parseFloat(items[2])*100]);
+          options.series[1].data.push([dt,parseFloat(items[4])*100]);
+          options.series[2].data.push([dt,parseFloat(items[3])*100]);
+            // items.forEach(function(item, itemNo) {  
+            //     if (itemNo == 0) {  
+            //         series.name = item; 
+            //         seriesrpm.name = item; 
+            //     } else if(itemNo == 1) {  
+            //       seriesrpm.data.push(parseFloat(item));  
+            //     }  else {
+            //       series.data.push(parseFloat(item));  
+            //     }
+            // });  
+              
+            // options.series.push(series);  
+            // optionsrpm.series.push(seriesrpm);  
+
+
+
+        }   
+      })
+      chartniveautests = Highcharts.stockChart('chart-niveautests', options );
+      chartrpm = Highcharts.stockChart('chart-rpm',optionsrpm);
+      maj()
+      majTimer();
+    }  ,
+    error: function (e, t) {  
+      console.error(e, t);  
     }  
   });
   //maj();
@@ -225,6 +353,7 @@ function maj(){
       try {
         var myObj = JSON.parse( this.responseText);
       console.log(myObj)
+      var time = (new Date()).getTime()
       for (i in myObj.boards) {
         x = document.getElementById('board-' + myObj.boards[i].localAddress)
         modal = document.getElementById('modal'+  myObj.boards[i].Name)
@@ -233,21 +362,22 @@ function maj(){
         modal.getElementsByClassName("message")[0].innerHTML = JSON.stringify( myObj.boards[i].lastMessage.content)
         modal.getElementsByClassName("lastUpdate")[0].innerHTML =  (myObj["msSystem"] - myObj.boards[i].lastUpdate) /1000
         //console.log(myObj.boards[i].lastMessage.content);
+        
         if (myObj.boards[i].Name == "Etang") {
           
           var message = myObj.boards[i].lastMessage.content
           
-          var x = (new Date()).getTime()
           
           var yn = message.Niveau * 100
+          yn =  parseFloat(yn.toFixed(2))
 
             //ajout donnée niveau dans graph
           if (chartniveautests.series[0].data.length > 40 ) {
             //chartniveau.series[0].addPoint([x, yn],true ,true,true);
-            chartniveautests.series[0].addPoint([x,yn],true,true,true)
+            chartniveautests.series[0].addPoint([time,yn],true,true,true)
           } else {
             //chartniveau.series[0].addPoint([x, yn],true ,false,true);
-            chartniveautests.series[0].addPoint([x, yn],true ,false,true);
+            chartniveautests.series[0].addPoint([time, yn],true ,false,true);
           
           }
         } else if (myObj.boards[i].Name == "Turbine") {
@@ -255,34 +385,47 @@ function maj(){
           var turbineBlock = document.querySelector('#board-11')
           var setpoint = turbineBlock.querySelector('#setPointSlider')
           console.log("setpoint: ",setpoint);
-          var x = (new Date()).getTime()
           
+          
+          var wn = message.Taqui
+          wn = parseFloat(wn.toFixed(2))
           var yn = message.Ouverture * 100
+          yn = parseFloat(yn.toFixed(2))
           var zn = message.Setpoint * 100
+          zn = parseFloat(zn.toFixed(2))
+
           setpoint.value = zn;
           var barProgress = document.querySelector(".progress-bar")
           barProgress.style.width = yn + '%'
             //ajout donnée niveau dans graph
+            // if (chartrpm.series[0].data.length > 40 ) {
+            //   //chartniveau.series[0].addPoint([x, yn],true ,true,true);
+            //   chartrpm.series[0].addPoint([time,wn],true,true,true)
+            // } else {
+              //chartniveau.series[0].addPoint([x, yn],true ,false,true);
+              chartrpm.series[0].addPoint([time, wn],true ,false,true);
+            
+            //}
           if (chartniveautests.series[1].data.length > 40 ) {
             //chartniveau.series[0].addPoint([x, yn],true ,true,true);
-            chartniveautests.series[1].addPoint([x,yn],true,true,true)
+            chartniveautests.series[1].addPoint([time,yn],true,true,true)
           } else {
             //chartniveau.series[0].addPoint([x, yn],true ,false,true);
-            chartniveautests.series[1].addPoint([x, yn],true ,false,true);
+            chartniveautests.series[1].addPoint([time, yn],true ,false,true);
           
           }
           if (chartniveautests.series[2].data.length > 40 ) {
             //chartniveau.series[0].addPoint([x, yn],true ,true,true);
-            chartniveautests.series[2].addPoint([x,zn],true,true,true)
+            chartniveautests.series[2].addPoint([time,zn],true,true,true)
           } else {
             //chartniveau.series[0].addPoint([x, yn],true ,false,true);
-            chartniveautests.series[2].addPoint([x, zn],true ,false,true);
+            chartniveautests.series[2].addPoint([time, zn],true ,false,true);
           
           }
         }
       }
       } catch (error) {
-        
+        console.log(error);
       }
       
 

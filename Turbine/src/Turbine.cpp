@@ -553,7 +553,9 @@ void displayData() {
  
 
 float mesureTaqui(void){
+  detachInterrupt(pinTaqui);
 	float rpm = countTaqui * 60000 / float((millis() - previousMillisTaqui));
+  attachInterrupt(pinTaqui, isrTaqui,RISING);
 	countTaqui = 0;
 	previousMillisTaqui = millis();
 

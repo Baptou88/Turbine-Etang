@@ -128,6 +128,9 @@ long msgCount = 0;
 byte displayMode = 0;
 
 double NiveauEtang = 0;
+long NiveauMaxEtang = 0;
+long NiveauMinEtang = 0;
+
 double correctionVanne =0;
 double setpoint = -.8;
 double pidNiveauEtang = -1 * NiveauEtang;
@@ -138,6 +141,7 @@ double OuvertureMaxVanne = 1800;
 double pidOuvertureVanne = 0;
 double pidOuvertureMaxVanne = -1800; 
 double Setpoint = 0;
+float Taqui = 0;
 
 // Parameter 1 = number of pixels in strip
 // Parameter 2 = Arduino pin number (most are valid)
@@ -286,7 +290,8 @@ String processor(const String& var) {
 		}
 		return retour;
 
-	} else if (var == "ModeTurbine")
+	} 
+	else if (var == "ModeTurbine")
 	{
 		
 		retour += "<select class=\"selectModeTurbine  form-select w-50\" name=\"text\" onchange=\"sendws('ModeTurbine=' + this.value);\">";
@@ -298,7 +303,8 @@ String processor(const String& var) {
 		
 		retour += "</select>";
 		return retour;
-	} else if (var == "StatutSysteme")
+	} 
+	else if (var == "StatutSysteme")
 	{
 		retour += "<div class='container'>";
 		retour += "<h2>Statut Systeme:</h2>";
@@ -308,7 +314,8 @@ String processor(const String& var) {
 		retour += "</div>";
 
 		return retour;
-	} else if (var == "ListeProgram")
+	}
+	else if (var == "ListeProgram")
 	{
 		
 		for (size_t i = 0; i < ProgrammatedTasks->size(); i++)
@@ -341,7 +348,8 @@ String processor(const String& var) {
 		
 		
 		return retour;
-	}else if (var.startsWith("ProgrammatedTasks"))
+	}
+	else if (var.startsWith("ProgrammatedTasks"))
 	{
 		String temp = var;
 		temp.replace("ProgrammatedTasks","");
@@ -371,6 +379,15 @@ String processor(const String& var) {
 		
 		return "erreur processing ProgrammatedTasks";
 	}
+	else if (var == "maxEtang")
+	{
+		return String(NiveauMaxEtang); 
+	}
+	else if (var == "minEtang")
+	{
+		return String(NiveauMinEtang); 
+	}
+	
 	
 	
 	return String("Erreur Processeur template");
@@ -461,6 +478,24 @@ bool saveData(void ){
 	objArrayData["time"] = timeClient.getEpochTime();
 
 	saveJsonToFile(&doc,"/data.json");
+	return true;
+}
+bool saveDataCsV(void){
+	File myFile;
+	if (!SPIFFS.exists("/data.csv"))
+	{
+		logPrintlnA("Creation du fichier csv");
+		File myFile = SPIFFS.open("/data.csv",FILE_WRITE);
+		myFile.print("Date,Tachy,Niveau,CibleVanne,OuvertureVanne");
+		myFile.close();
+		
+	} else
+	{
+		myFile = SPIFFS.open("/data.csv",FILE_APPEND);
+	}
+	
+	myFile.print("\n"+String(timeClient.getEpochTime())+","+String(Taqui)+","+String(NiveauEtang)+","+ String(Setpoint)+","+String(OuvertureVanne));
+	myFile.close();
 	return true;
 }
 void TraitementCommande(String c){
@@ -852,6 +887,18 @@ void RouteHttpSTA() {
 		
 		request->send(200,"text/json","{\"ok\":1}");
 		});
+	serverHTTP.on("/configuration", HTTP_GET, [](AsyncWebServerRequest* request) {
+		
+		request->send(SPIFFS,"/configuration.html", "text/html", false, processor);
+		});	
+	serverHTTP.on("/configuration.css", HTTP_GET, [](AsyncWebServerRequest* request) {
+		
+		request->send(SPIFFS,"/configuration.css", "text/css", false);
+		});	
+	serverHTTP.on("/configuration.js", HTTP_GET, [](AsyncWebServerRequest* request) {
+		
+		request->send(SPIFFS,"/configuration.js", "application/javascript", false);
+		});	
 	serverHTTP.on("/app.js", HTTP_GET, [](AsyncWebServerRequest* request) {
 		request->send(SPIFFS, "/app.js", "application/javascript");
 		});
@@ -882,6 +929,9 @@ void RouteHttpSTA() {
 		});
 	serverHTTP.on("/data.json", HTTP_GET, [](AsyncWebServerRequest* request) {
 		request->send(SPIFFS, "/data.json", "application/json");
+		});
+	serverHTTP.on("/data.csv", HTTP_GET, [](AsyncWebServerRequest* request) {
+		request->send(SPIFFS, "/data.csv", "text/csv");
 		});
 	
 	serverHTTP.on("/secret.html",HTTP_GET,[](AsyncWebServerRequest* request){
@@ -1207,7 +1257,7 @@ void deserializeResponse(byte board, String Response){
 	}
 	
 	logPrintlnV("c'est du json");
-	StaticJsonDocument<200> doc;
+	StaticJsonDocument<512> doc;
 
   // Deserialize the JSON document
   DeserializationError error = deserializeJson(doc, Response);
@@ -1221,16 +1271,22 @@ void deserializeResponse(byte board, String Response){
   switch (board)
   {
 	case ETANG:
+		if (doc.containsKey("maxEtang") && doc.containsKey("minEtang") )
+		{
+			NiveauMaxEtang = doc["maxEtang"];
+			NiveauMinEtang = doc["minEtang"];
+		}
 		NiveauEtang = doc["Niveau"];
 		pidNiveauEtang = -1 * NiveauEtang;
 		break;
 	case TURBINE:
-		if (doc.containsKey("Ouverture") && doc.containsKey("OuvMaxCodeur") && doc.containsKey("Setpoint"))
+		if (doc.containsKey("Ouverture") && doc.containsKey("OuvMaxCodeur") && doc.containsKey("Setpoint") && doc.containsKey("Taqui"))
 		{
 			Serial.println("J'ai bien les key du json de turbine");
 			OuvertureVanne = doc["Ouverture"];
 			OuvertureMaxVanne = doc["OuvMaxCodeur"];
 			Setpoint = doc["Setpoint"];
+			Taqui = doc["Taqui"];
 			pidOuvertureMaxVanne = -1*OuvertureMaxVanne;
 			pidOuvertureVanne = -1*OuvertureVanne;
 			myPID.setOutputRange(  (-1)* (OuvertureMaxVanne - OuvertureVanne), (-1 * OuvertureVanne) );
@@ -1825,6 +1881,7 @@ void loop() {
 	}
 	
 	
+	// reconnexion wifi
 	static uint32_t previousMillis = 0;
 	// if WiFi is down, try reconnecting every CHECK_WIFI_TIME seconds
 	if ((WiFi.status() != WL_CONNECTED) && (millis() - previousMillis >= 30000)) {
@@ -1838,7 +1895,7 @@ void loop() {
 
 	
 
-	
+	// Verification et execution des tçaches programmées
 	if (millis()>previouscheckTask + 60000)
 	{
 		previouscheckTask = millis();
@@ -1858,6 +1915,11 @@ void loop() {
 						}
 						
 					}
+					if (tache->targetVanne != 0)
+					{
+						searchBoardById(TURBINE)->msgToSend += "P=" + String(tache->targetVanne);
+					}
+					
 					
 				}
 				
@@ -1866,7 +1928,14 @@ void loop() {
 		}
 		
 	}
-	
+
+	//Sauvegarde des données
+	if (millis() > lastSaveData + 30000)
+	{
+		lastSaveData = millis();
+		saveDataCsV();
+	}
+		
 	ws.cleanupClients();
 	//ArduinoOTA.handle();
 

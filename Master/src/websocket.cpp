@@ -23,7 +23,7 @@ extern LList<board*> *allBoard;
 extern double OuvertureVanne;
 
 void notifyClients() {
-  //ws.textAll(String("ModeTurbine") + String(modeTurbine));
+  
   String retour = "{ \"msSystem\" :" + String(millis()) + "," +
 			//"\"modeTurbine\":\"" + String(EmodeTurbinetoString(modeTurbine)) + "\"," + 
 			"\"modeTurbine\": {\"name\":\" " + String(EmodeTurbinetoString(modeTurbine)) + "\", \"id\":"+ modeTurbine + "}," + 
