@@ -27,7 +27,7 @@ enum ELora
 	Etang = 0xC,
 	Radiateur = 0xD
 };
-void sendMessage(byte destination, String outgoing);
+void sendMessage(byte destination, String outgoing, bool async = false);
 
 void sendMessageConfirmation(int msgNumber, byte destination = MASTER);
 class Message

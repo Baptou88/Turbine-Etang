@@ -4,15 +4,25 @@
 #include <Adafruit_I2CDevice.h>
 
 const byte pinCurrentSensor = 36;
+const byte pinCurrentSensorSct013 = 34;
 const byte pinTensionSensor = 39;
-float currentValue = 0;
+
+
+float rawCurrentValuewcs = 0;
+float currentValueWcs = 0;
+
+float rawCurrentValueSct013 = 0;
+float currentValueSct013 = 0;
 float tensionValue = 0;
 
 
 Adafruit_SSD1306 display(128, 64, &Wire);
 
 void mesureSysteme(void){
-  currentValue = (analogRead(pinCurrentSensor));//-1846)*0.032;
+  rawCurrentValuewcs = (analogRead(pinCurrentSensor));//-1846)*0.032;
+  currentValueWcs = (rawCurrentValuewcs -1840) * 0.032;
+  rawCurrentValueSct013 = analogRead(pinCurrentSensorSct013);
+  currentValueSct013 = (rawCurrentValueSct013-2970)*0.0625;
   tensionValue = analogRead(pinTensionSensor)*0.07;
 }
 void setup() {
@@ -32,6 +42,7 @@ void setup() {
   display.setTextColor(SSD1306_WHITE); // Draw white text
 
   pinMode(pinCurrentSensor,INPUT);
+  pinMode(pinCurrentSensorSct013,INPUT);
   pinMode(pinTensionSensor,INPUT);
 }
 
@@ -41,11 +52,17 @@ void loop() {
 
   display.clearDisplay();
   display.setCursor(10,10);
-  display.print(String(currentValue) + " mA");
+  display.print(String(rawCurrentValueSct013) );
+  display.setCursor(70,10);
+  display.print(String(currentValueSct013) + " mA");
   display.setCursor(10,20);
+  display.print(String(rawCurrentValuewcs) );
+  display.setCursor(70,20);
+  display.print(String(currentValueWcs) + " mA");
+  display.setCursor(10,30);
   display.print(String(tensionValue) + " V");
   display.display();
-  Serial.println(currentValue);
+
   
   static unsigned long previousSend = 0;
   if (millis()-previousSend >5000)

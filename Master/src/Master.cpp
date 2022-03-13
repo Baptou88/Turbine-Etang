@@ -216,9 +216,9 @@ String processor(const String& var) {
 				{
 					if (temp->Commands->get(j).Type == "button")
 					{
-						retour += "<div>";
-						retour += "<input class=\"btn btn-outline-dark m-1\" type=\""+ temp->Commands->get(j).Type + "\" name=\""+ temp->Commands->get(j).Name + "\" value=\"" + temp->Commands->get(j).Name + "\" onclick=\"update(this,"+ "'"+temp->Commands->get(j).Action +"')\">\n";
-						retour += "</div>";
+						retour += "<div>\n";
+						retour += "\t<input class=\"btn btn-outline-dark m-1\" type=\""+ temp->Commands->get(j).Type + "\" name=\""+ temp->Commands->get(j).Name + "\" value=\"" + temp->Commands->get(j).Name + "\" onclick=\"update(this,"+ "'"+temp->Commands->get(j).Action +"')\">\n";
+						retour += "</div>\n";
 
 					} else if (temp->Commands->get(j).Type == "textbox" ||temp->Commands->get(j).Type == "number")
 					{
@@ -236,7 +236,7 @@ String processor(const String& var) {
 					else if (temp->Commands->get(j).Type == "progress")
 					{
 					retour += "<div class=\"progress\">\n";
-					retour += "\t<div class=\"progress-bar w\" style=\"width: "+ temp->Commands->get(j).Value +"\" role=\"progressbar\" aria-valuenow=\"75\" aria-valuemin=\"0\" aria-valuemax=\"100\"></div>\n";
+					retour += "\t<div class=\"progress-bar w\" style=\"width: "+ temp->Commands->get(j).Value +"\" role=\"progressbar\" ></div>\n";
 					retour += "</div>\n";
 					} else
 					 
@@ -321,18 +321,21 @@ String processor(const String& var) {
 		for (size_t i = 0; i < ProgrammatedTasks->size(); i++)
 		{
 			//retour += (String)ProgrammatedTasks->get(i)->name;
-			retour += "<div class=\"card border my-2 p-2\" style=\"width: auto\">\n";
-			retour += "<h5 class=\"card-title\">" + (String)ProgrammatedTasks->get(i)->name + "</h5>\n";
-			//retour += "<h3>" + (String)ProgrammatedTasks->get(i)->name + "</h3>";
+			retour += "<div class=\"card border my-2 \" style=\"width: auto\">\n";
 			retour += "<form  action =\"/updateprogrammateur\" method=\"post\">";
-			retour += "<div class=\"form-group\">";
+			//retour += "<h3>" + (String)ProgrammatedTasks->get(i)->name + "</h3>";
+			retour += "<div class=\"card-header\">";
+			retour += "<div class=\"form-check form-switch\" >";
+    		retour += "<input class=\"form-check-input\" type=\"checkbox\" name=\"active\" role=\"switch\" id=\"flexSwitchCheckChecked\" " + String("\%ProgrammatedTasks" + String(i) + ":isActive\%")  + " onclick=\"update(this)\">";
+  			//retour += "<label class=\"form-check-label\" for=\"flexSwitchCheckChecked\">Checked switch checkbox input</label>";
+			retour += "<h5 class=\"card-title\">" + (String)ProgrammatedTasks->get(i)->name + "</h5>\n";
+
+			retour += "</div>";
+			retour += "</div>";
+			retour += "<div class=\"form-group\" hidden>";
     		retour += "<label for=\"exampleFormControlInput1\">ID</label>";
     		retour += "<input type=\"number\" class=\"form-control\" name=\"id\" id=\"exampleFormControlInput1\" placeholder=\"id\" value=\""+(String) i +"\" hidden>";
   			retour += "</div>";
-			retour += "<div class=\"form-check form-switch\" >";
-    		retour += "<input class=\"form-check-input\" type=\"checkbox\" name=\"active\" role=\"switch\" id=\"flexSwitchCheckChecked\" " + String("\%ProgrammatedTasks" + String(i) + ":isActive\%")  + " >";
-  			retour += "<label class=\"form-check-label\" for=\"flexSwitchCheckChecked\">Checked switch checkbox input</label>";
-			retour += "</div>";
 			retour += "<label for=\"appt\">Heure du déclanchement:</label>\n";
 			retour += "<input type=\"time\" id=\"appt\" name=\"appt\"  value= \"\%ProgrammatedTasks" + String(i) + ":getHours\%" + ":" + "\%ProgrammatedTasks" + String(i) + ":getMinutes\%" +"\"  required>\n";
 			retour += "<label for=\"customRange1\" class=\"form-label\">Example range</label>";
@@ -340,7 +343,12 @@ String processor(const String& var) {
 			retour += "<label for=\"deepsleep\">DeepSleep (ms) :</label>\n";
 			retour += "<input type=\"number\" id=\"appte\" name=\"deepsleep\"  value= \"\%ProgrammatedTasks" + String(i) + ":deepsleep\%"  +"\"  required>\n";
 			retour += "<button class=\"btn btn-primary\" type=\"submit\">Mettre a jour</button>";
-			retour += "<a href=\"/programmateur/?delete="+(String) i +"\" class=\"btn btn-danger\">Supprimer</a>";
+			retour += "<a href=\"/programmateur/?delete="+(String) i +"\" class=\"btn btn-danger\">";
+			retour += "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" fill=\"white\" class=\"bi bi-trash\" viewBox=\"0 0 16 16\">";
+  			retour += "<path d=\"M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z\"/>";
+  			retour += "<path fill-rule=\"evenodd\" d=\"M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z\"/>";
+			retour += "</svg>";
+			retour += "</a>";
 			retour += "</form>";
 			retour += "</div>\n";
 
@@ -390,7 +398,7 @@ String processor(const String& var) {
 	
 	
 	
-	return String("Erreur Processeur template");
+	return String("Erreur Processeur template" + var);
 	
 }
 JsonObject getJsonFromFile(DynamicJsonDocument *doc, String filename){
@@ -440,6 +448,8 @@ void InitBoard(void) {
 	EtangBoard.AddCommand("Distance mode Short","button","DistanceMode=0");
 	EtangBoard.AddCommand("Distance mode medium","button","DistanceMode=1");
 	EtangBoard.AddCommand("Distance mode Long","button","DistanceMode=2");
+	EtangBoard.AddCommand("Ouverture Vanne", "progress","",String(OuvertureVanne));
+
 
 	TurbineBoard.AddCommand("OuvertureTotale", "button", "OT");
 	TurbineBoard.AddCommand("FermetureTotale", "button", "FT");
@@ -451,7 +461,7 @@ void InitBoard(void) {
 	TurbineBoard.AddCommand("-1T  Vanne","button","DEGV-360");
 	TurbineBoard.AddCommand("% Vanne", "range","P",String(OuvertureVanne));
 	TurbineBoard.AddCommand("Max Intensité Moteur (mA)", "number","SetMaxI","10000");
-	TurbineBoard.AddCommand("Ouverture Vanne", "progress","",String(OuvertureVanne));
+	TurbineBoard.AddCommand("Niveau Etang", "progress","",String(NiveauEtang));
 
 	
 	localboard.AddCommand("Save data", "button","SDATA");
@@ -476,7 +486,7 @@ bool saveData(void ){
 	objArrayData["niveauEtang"] = NiveauEtang;
 	objArrayData["ouverture"] = OuvertureVanne;
 	objArrayData["time"] = timeClient.getEpochTime();
-
+	
 	saveJsonToFile(&doc,"/data.json");
 	return true;
 }
@@ -489,11 +499,10 @@ bool saveDataCsV(void){
 		myFile.print("Date,Tachy,Niveau,CibleVanne,OuvertureVanne");
 		myFile.close();
 		
-	} else
-	{
-		myFile = SPIFFS.open("/data.csv",FILE_APPEND);
 	}
+	myFile = SPIFFS.open("/data.csv",FILE_APPEND);
 	
+	logPrintlnI("heure: " + String(timeClient.getFormattedTime()));
 	myFile.print("\n"+String(timeClient.getEpochTime())+","+String(Taqui)+","+String(NiveauEtang)+","+ String(Setpoint)+","+String(OuvertureVanne));
 	myFile.close();
 	return true;
@@ -931,7 +940,7 @@ void RouteHttpSTA() {
 		request->send(SPIFFS, "/data.json", "application/json");
 		});
 	serverHTTP.on("/data.csv", HTTP_GET, [](AsyncWebServerRequest* request) {
-		request->send(SPIFFS, "/data.csv", "text/csv");
+		request->send(SPIFFS, "/data.csv", "text/plain");
 		});
 	
 	serverHTTP.on("/secret.html",HTTP_GET,[](AsyncWebServerRequest* request){
@@ -1800,7 +1809,7 @@ void setup() {
 	analogSetClockDiv(255); // 1338mS
 	
 	lireTacheProgrammer();
-	
+
 }
 
 // the loop function runs over and over again until power down or reset

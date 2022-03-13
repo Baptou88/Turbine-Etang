@@ -232,7 +232,7 @@ document.addEventListener('DOMContentLoaded', function () {
             var seriesrpm = {   
               data: []  
           };  
-          var dt = new Date((items[0]-3600) * 1000).getTime();
+          var dt = new Date(((items[0]-3600)) * 1000).getTime();
           optionsrpm.series[0].data.push([dt,parseFloat(items[1])]);
           options.series[0].data.push([dt,parseFloat(items[2])*100]);
           options.series[1].data.push([dt,parseFloat(items[4])*100]);
@@ -349,7 +349,7 @@ function maj(){
   var xhr = new XMLHttpRequest();
   xhr.onreadystatechange = function() {
     if (this.readyState == 4 && this.status == 200) {
-      // console.log(this.responseText)
+      console.log(this.responseText)
       try {
         var myObj = JSON.parse( this.responseText);
       console.log(myObj)
@@ -371,15 +371,18 @@ function maj(){
           var yn = message.Niveau * 100
           yn =  parseFloat(yn.toFixed(2))
 
+          var barProgress = x.querySelector(".progress-bar")
+          barProgress.style.width = yn + '%'
+
             //ajout donnée niveau dans graph
-          if (chartniveautests.series[0].data.length > 40 ) {
-            //chartniveau.series[0].addPoint([x, yn],true ,true,true);
-            chartniveautests.series[0].addPoint([time,yn],true,true,true)
-          } else {
+          // if (chartniveautests.series[0].data.length > 40 ) {
+          //   //chartniveau.series[0].addPoint([x, yn],true ,true,true);
+          //   chartniveautests.series[0].addPoint([time,yn],true,true,true)
+          // } else {
             //chartniveau.series[0].addPoint([x, yn],true ,false,true);
             chartniveautests.series[0].addPoint([time, yn],true ,false,true);
           
-          }
+          //}
         } else if (myObj.boards[i].Name == "Turbine") {
           var message = myObj.boards[i].lastMessage.content
           var turbineBlock = document.querySelector('#board-11')
@@ -395,7 +398,7 @@ function maj(){
           zn = parseFloat(zn.toFixed(2))
 
           setpoint.value = zn;
-          var barProgress = document.querySelector(".progress-bar")
+          var barProgress = turbineBlock.querySelector(".progress-bar")
           barProgress.style.width = yn + '%'
             //ajout donnée niveau dans graph
             // if (chartrpm.series[0].data.length > 40 ) {
@@ -406,22 +409,22 @@ function maj(){
               chartrpm.series[0].addPoint([time, wn],true ,false,true);
             
             //}
-          if (chartniveautests.series[1].data.length > 40 ) {
-            //chartniveau.series[0].addPoint([x, yn],true ,true,true);
-            chartniveautests.series[1].addPoint([time,yn],true,true,true)
-          } else {
+          // if (chartniveautests.series[1].data.length > 40 ) {
+          //   //chartniveau.series[0].addPoint([x, yn],true ,true,true);
+          //   chartniveautests.series[1].addPoint([time,yn],true,true,true)
+          // } else {
             //chartniveau.series[0].addPoint([x, yn],true ,false,true);
             chartniveautests.series[1].addPoint([time, yn],true ,false,true);
           
-          }
-          if (chartniveautests.series[2].data.length > 40 ) {
-            //chartniveau.series[0].addPoint([x, yn],true ,true,true);
-            chartniveautests.series[2].addPoint([time,zn],true,true,true)
-          } else {
+          //}
+          // if (chartniveautests.series[2].data.length > 40 ) {
+          //   //chartniveau.series[0].addPoint([x, yn],true ,true,true);
+          //   chartniveautests.series[2].addPoint([time,zn],true,true,true)
+          // } else {
             //chartniveau.series[0].addPoint([x, yn],true ,false,true);
             chartniveautests.series[2].addPoint([time, zn],true ,false,true);
           
-          }
+          //}
         }
       }
       } catch (error) {

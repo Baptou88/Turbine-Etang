@@ -15,8 +15,10 @@
 digitalOutput rad1(12);
 digitalOutput rad2(13);
 
-#define pinSCT013 35
-long currencSCT013 = 0;
+#define pinSCT013 36
+long rawCurrencSCT013 = 0;
+float SCT013multiplier = 0.0625F;
+float CurrentSCT013 = 0;
 
 Message receivedMessage;
 byte localAddress = RADIATEUR;
@@ -31,6 +33,11 @@ float current_mA_2;
 
 float offset_A = 0;
 
+bool reactiveReception = false;
+
+void onTxDone(void){
+  reactiveReception = true;
+}
 void onReceive(int packetSize){
   if (packetSize == 0) return;          // if there's no packet, return
 	
@@ -63,12 +70,15 @@ void onReceive(int packetSize){
   newMessage = true;
   lastMessage = millis();
 }
+
 void mesureSysteme(){
    current_mA = ina219.getCurrent_mA();   
    current_mA_2 = ina219_2.getCurrent_mA();
 
-  currencSCT013 = analogRead(pinSCT013);
+  rawCurrencSCT013 = analogRead(pinSCT013);
+  CurrentSCT013 = (rawCurrencSCT013-2060)* SCT013multiplier;
 }
+
 void TraitementCommande(String cmd){
   Serial.println("TraitementCMD: " + String(cmd));
   if (cmd.startsWith("rad"))
@@ -96,17 +106,25 @@ void gestionSorties(void){
   rad1.loop();
   rad2.loop();
 }
+
 void setup() {
   // put your setup code here, to run once:
-  Heltec.begin(true,true,true,true,868E6);
+  Heltec.begin(true,false,true,true,868E6);
+  SPI.begin(SCK,MISO,MOSI,SS);
+	
+  LoRa.setPins(SS,RST_LoRa,DIO0);
+	while (!LoRa.begin(868E6))
+	{
+		Serial.println("erreur lora");
+		delay(1000);
+	}
 
   LoRa.setSpreadingFactor(8);
 	LoRa.setSyncWord(0x12);
 	LoRa.setSignalBandwidth(125E3);
   LoRa.onReceive(onReceive);
-  LoRa.setSpreadingFactor(8);
-	LoRa.setSyncWord(0x12);
-	LoRa.setSignalBandwidth(125E3);
+  //LoRa.onTxDone(onTxDone);
+  
   LoRa.receive();
 
   if (! ina219.begin()) {
@@ -135,20 +153,32 @@ pinMode(pinSCT013,INPUT);
 
 void loop() {
   mesureSysteme();
+
+  
+  
   if (newMessage)
   {
     newMessage = false;
     TraitementCommande(receivedMessage.Content);
-    sendMessage(MASTER,"ok");
+
+    sendMessage(MASTER,"ok",false);
     LoRa.receive();
+    reactiveReception = true;
   }
+  if (reactiveReception && LoRa.beginPacket() == 0)
+  {
+    reactiveReception = false;
+    LoRa.receive();
+    Serial.println("Reactivation Reception");
+  }
+  
   
  float wcs_vol = (analogRead(2)*3.3)/4095;
  float wcs_a =  (wcs_vol - offset_A)/0.0269;
 
   Heltec.display->clear();
   Heltec.display->drawString(0,0,(String)current_mA + " mA");
-  Heltec.display->drawString(0,15,"SCT013 "+(String)currencSCT013);
+  Heltec.display->drawString(0,15,"SCT013 "+(String)rawCurrencSCT013 + " " +(String)CurrentSCT013);
   // Heltec.display->drawString(0,0,(String)ina219.getShuntVoltage_mV()+ " V");
   Heltec.display->drawString(0,30,(String)current_mA_2 + " mA");
   Heltec.display->drawString(50,50,(String)wcs_a + " A");

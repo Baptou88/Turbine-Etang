@@ -25,7 +25,7 @@ extern byte localAddress;
  * @param destination utiliser 0xff pour envoyer à toutes les lora
  * @param outgoing message 
  */
-void sendMessage(byte destination, String outgoing)
+void sendMessage(byte destination, String outgoing, bool async )
 {
 	LoRa.beginPacket();                   // start packet
 	LoRa.write(destination);              // add destination address
@@ -33,9 +33,10 @@ void sendMessage(byte destination, String outgoing)
 	LoRa.write(msgCount);                 // add message ID
 	LoRa.write(outgoing.length());        // add payload length
 	LoRa.print(outgoing);                 // add payload
-	LoRa.endPacket();                     // finish packet and send it
+	LoRa.endPacket(async);                     // finish packet and send it
 	msgCount++;                           // increment message ID
 }
+
 void sendMessageConfirmation(int msgNumber, byte destination ){
   sendMessage(destination,"ok="+(String)msgNumber);
 }
