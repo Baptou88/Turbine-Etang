@@ -360,6 +360,8 @@ void TraitementCommande(String c){
 		doc["OuvCodeur"] = posMoteur;
 		doc["OuvMaxCodeur"] = ouvertureMax;
     doc["Tension"] = generatrice_voltage;
+    doc["Intensite"] = generatrice_current;
+
     doc["State"] = fsm.getActiveState()->Name;
 		serializeJson(doc,json);
 		Serial.println(json);
@@ -551,7 +553,9 @@ void displayData() {
 }
 
  
-
+IRAM_ATTR void isrTaqui(void){
+ countTaqui++;
+}
 float mesureTaqui(void){
   detachInterrupt(pinTaqui);
 	float rpm = countTaqui * 60000 / float((millis() - previousMillisTaqui));
@@ -661,9 +665,7 @@ void EvolutionGraphe(void){
   
   
 }
-IRAM_ATTR void isrTaqui(void){
- countTaqui++;
-}
+
 void TraitementSerial2(String s){
   while (s.indexOf(";")!= -1)
   {
