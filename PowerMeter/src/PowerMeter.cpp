@@ -69,7 +69,7 @@ void loop() {
   {
     previousSend = millis();
     Serial1.print("voltage=" + String(tensionValue)+";");
-    Serial1.println("current=" +String(random(2))+";");
+    Serial1.println("current=" +String(currentValueWcs)+";");
   }
 
   delay(200);
