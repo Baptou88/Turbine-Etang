@@ -81,6 +81,10 @@ document.addEventListener('DOMContentLoaded', function () {
             type: 'minute',
             text: '5M'
         }, {
+            count: 30,
+            type: 'minute',
+            text: '30M'
+        }, {
             type: 'all',
             text: 'All'
         }],
@@ -194,6 +198,11 @@ document.addEventListener('DOMContentLoaded', function () {
         name: 'Rotation (rpm)',
         data: [],
         color: '#b2414a'
+      },
+      {
+        name: 'Puissance (W)',
+        data: [],
+        color: '#550066'
       }
     ]
   };
@@ -352,81 +361,85 @@ function maj(){
       console.log(this.responseText)
       try {
         var myObj = JSON.parse( this.responseText);
-      console.log(myObj)
-      var time = (new Date()).getTime()
-      for (i in myObj.boards) {
-        x = document.getElementById('board-' + myObj.boards[i].localAddress)
-        modal = document.getElementById('modal'+  myObj.boards[i].Name)
-        //x.getElementsByClassName("message")[0].innerHTML = JSON.stringify( myObj.boards[i].lastMessage.content)
+        console.log(myObj)
+        var time = (new Date()).getTime()
+        for (i in myObj.boards) {
+          x = document.getElementById('board-' + myObj.boards[i].localAddress)
+          connected = x.getElementsByClassName('connected')
+          // connected.classList.replace("bg-success",myObj.boards[i].connected)
+          // connected.classList.replace("bg-light",myObj.boards[i].connected)
+          modal = document.getElementById('modal'+  myObj.boards[i].Name)
+          //x.getElementsByClassName("message")[0].innerHTML = JSON.stringify( myObj.boards[i].lastMessage.content)
 
-        modal.getElementsByClassName("message")[0].innerHTML = JSON.stringify( myObj.boards[i].lastMessage.content)
-        modal.getElementsByClassName("lastUpdate")[0].innerHTML =  (myObj["msSystem"] - myObj.boards[i].lastUpdate) /1000
-        //console.log(myObj.boards[i].lastMessage.content);
-        
-        if (myObj.boards[i].Name == "Etang") {
+          modal.getElementsByClassName("message")[0].innerHTML = JSON.stringify( myObj.boards[i].lastMessage.content)
+          modal.getElementsByClassName("lastUpdate")[0].innerHTML =  (myObj["msSystem"] - myObj.boards[i].lastUpdate) /1000
+          //console.log(myObj.boards[i].lastMessage.content);
           
-          var message = myObj.boards[i].lastMessage.content
-          
-          
-          var yn = message.Niveau * 100
-          yn =  parseFloat(yn.toFixed(2))
+          if (myObj.boards[i].Name == "Etang") {
+            
+            var message = myObj.boards[i].lastMessage.content
+            
+            
+            var yn = message.Niveau * 100
+            yn =  parseFloat(yn.toFixed(2))
 
-          var barProgress = x.querySelector(".progress-bar")
-          barProgress.style.width = yn + '%'
+            var barProgress = x.querySelector(".progress-bar")
+            barProgress.style.width = yn + '%'
 
-            //ajout donnée niveau dans graph
-          // if (chartniveautests.series[0].data.length > 40 ) {
-          //   //chartniveau.series[0].addPoint([x, yn],true ,true,true);
-          //   chartniveautests.series[0].addPoint([time,yn],true,true,true)
-          // } else {
-            //chartniveau.series[0].addPoint([x, yn],true ,false,true);
-            chartniveautests.series[0].addPoint([time, yn],true ,false,true);
-          
-          //}
-        } else if (myObj.boards[i].Name == "Turbine") {
-          var message = myObj.boards[i].lastMessage.content
-          var turbineBlock = document.querySelector('#board-11')
-          var setpoint = turbineBlock.querySelector('#setPointSlider')
-          console.log("setpoint: ",setpoint);
-          
-          
-          var wn = message.Taqui
-          wn = parseFloat(wn.toFixed(2))
-          var yn = message.Ouverture * 100
-          yn = parseFloat(yn.toFixed(2))
-          var zn = message.Setpoint * 100
-          zn = parseFloat(zn.toFixed(2))
-
-          setpoint.value = zn;
-          var barProgress = turbineBlock.querySelector(".progress-bar")
-          barProgress.style.width = yn + '%'
-            //ajout donnée niveau dans graph
-            // if (chartrpm.series[0].data.length > 40 ) {
+              //ajout donnée niveau dans graph
+            // if (chartniveautests.series[0].data.length > 40 ) {
             //   //chartniveau.series[0].addPoint([x, yn],true ,true,true);
-            //   chartrpm.series[0].addPoint([time,wn],true,true,true)
+            //   chartniveautests.series[0].addPoint([time,yn],true,true,true)
             // } else {
               //chartniveau.series[0].addPoint([x, yn],true ,false,true);
-              chartrpm.series[0].addPoint([time, wn],true ,false,true);
+              chartniveautests.series[0].addPoint([time, yn],true ,false,true);
             
             //}
-          // if (chartniveautests.series[1].data.length > 40 ) {
-          //   //chartniveau.series[0].addPoint([x, yn],true ,true,true);
-          //   chartniveautests.series[1].addPoint([time,yn],true,true,true)
-          // } else {
-            //chartniveau.series[0].addPoint([x, yn],true ,false,true);
-            chartniveautests.series[1].addPoint([time, yn],true ,false,true);
-          
-          //}
-          // if (chartniveautests.series[2].data.length > 40 ) {
-          //   //chartniveau.series[0].addPoint([x, yn],true ,true,true);
-          //   chartniveautests.series[2].addPoint([time,zn],true,true,true)
-          // } else {
-            //chartniveau.series[0].addPoint([x, yn],true ,false,true);
-            chartniveautests.series[2].addPoint([time, zn],true ,false,true);
-          
-          //}
+          } else if (myObj.boards[i].Name == "Turbine") {
+            var message = myObj.boards[i].lastMessage.content
+            var turbineBlock = document.querySelector('#board-11')
+            var setpoint = turbineBlock.querySelector('#setPointSlider')
+            console.log("setpoint: ",setpoint);
+            
+            var un = message.Tension * message.Intenite
+            un = parseFloat(un.toFixed(2))
+            var wn = message.Taqui
+            wn = parseFloat(wn.toFixed(2))
+            var yn = message.Ouverture * 100
+            yn = parseFloat(yn.toFixed(2))
+            var zn = message.Setpoint * 100
+            zn = parseFloat(zn.toFixed(2))
+
+            setpoint.value = zn;
+            var barProgress = turbineBlock.querySelector(".progress-bar")
+            barProgress.style.width = yn + '%'
+              //ajout donnée niveau dans graph
+              // if (chartrpm.series[0].data.length > 40 ) {
+              //   //chartniveau.series[0].addPoint([x, yn],true ,true,true);
+              //   chartrpm.series[0].addPoint([time,wn],true,true,true)
+              // } else {
+                //chartniveau.series[0].addPoint([x, yn],true ,false,true);
+                chartrpm.series[0].addPoint([time, wn],true ,false,true);
+                chartrpm.series[1].addPoint([time,un],true,false,true);
+              //}
+            // if (chartniveautests.series[1].data.length > 40 ) {
+            //   //chartniveau.series[0].addPoint([x, yn],true ,true,true);
+            //   chartniveautests.series[1].addPoint([time,yn],true,true,true)
+            // } else {
+              //chartniveau.series[0].addPoint([x, yn],true ,false,true);
+              chartniveautests.series[1].addPoint([time, yn],true ,false,true);
+            
+            //}
+            // if (chartniveautests.series[2].data.length > 40 ) {
+            //   //chartniveau.series[0].addPoint([x, yn],true ,true,true);
+            //   chartniveautests.series[2].addPoint([time,zn],true,true,true)
+            // } else {
+              //chartniveau.series[0].addPoint([x, yn],true ,false,true);
+              chartniveautests.series[2].addPoint([time, zn],true ,false,true);
+            
+            //}
+          }
         }
-      }
       } catch (error) {
         console.log(error);
       }

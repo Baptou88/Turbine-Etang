@@ -77,7 +77,8 @@ public:
 		return "{ \"Name\" : \"" + Name + "\"," +
 			"\"localAddress\" : " + localAddress + "," +
 			"\"lastMessage\" : " + this->LastMessage.toJson() + "," +
-			"\"lastUpdate\" : " + lastmessage + "" + 
+			"\"lastUpdate\" : " + lastmessage + "," + 
+			"\"connected\" : " + isConnected() + "" + 
 			"}";
 	};
 

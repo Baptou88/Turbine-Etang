@@ -29,7 +29,7 @@ enum ELora
 };
 void sendMessage(byte destination, String outgoing, bool async = false);
 
-void sendMessageConfirmation(int msgNumber, byte destination = MASTER);
+void sendMessageConfirmation(int msgNumber, byte destination = MASTER, bool async = false);
 class Message
 {
 public:

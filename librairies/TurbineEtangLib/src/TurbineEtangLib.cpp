@@ -37,7 +37,7 @@ void sendMessage(byte destination, String outgoing, bool async )
 	msgCount++;                           // increment message ID
 }
 
-void sendMessageConfirmation(int msgNumber, byte destination ){
+void sendMessageConfirmation(int msgNumber, byte destination,bool async ){
   sendMessage(destination,"ok="+(String)msgNumber);
 }
 /**
