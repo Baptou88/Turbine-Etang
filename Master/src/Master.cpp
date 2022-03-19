@@ -203,7 +203,10 @@ String processor(const String& var) {
 		for (byte i = 0; i < allBoard->size(); i = i + 1) {
 			retour += "<div class=\"card mb-2\" id=\"board-"+ String(allBoard->get(i)->localAddress) + "\">\n";
 			retour += "<div class=\"card-header\">";
-			retour += "<h4 class= \"card-title\">" + String(allBoard->get(i)->Name) + " <span class=\"text-muted\"> " + String(allBoard->get(i)->localAddress, HEX) +   " " + String(allBoard->get(i)->isConnected()) + " " + String(allBoard->get(i)->LastMessage.RSSI) + " dB"+ "</span></h4>\n";
+			retour += "\t<h4 class= \"card-title\">" + String(allBoard->get(i)->Name) + " <span class=\"text-muted\"> " + String(allBoard->get(i)->localAddress, HEX) +   " " + String(allBoard->get(i)->isConnected()) + " " + String(allBoard->get(i)->LastMessage.RSSI) + " dB"+ "</span></h4>\n";
+			retour += "<span class=\"connected position-absolute top-0 start-100 translate-middle p-2 bg-"+ String(allBoard->get(i)->isConnected() ?"success":"light") + (String)" border border-light rounded-circle\">";
+			retour += "<span class=\"visually-hidden\">New alerts</span>";
+			retour += "</span>";
 			retour += "</div>";
 			retour += "<div class=\"spinner-border\" role=\"status\" style=\"display:none\">\n<span class=\"visually-hidden\">Loading...</span>\n</div>";
 			retour += "<div class = \"card-body\">\n";

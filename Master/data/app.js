@@ -365,6 +365,9 @@ function maj(){
         var time = (new Date()).getTime()
         for (i in myObj.boards) {
           x = document.getElementById('board-' + myObj.boards[i].localAddress)
+          connected = x.getElementsByClassName('connected')
+          // connected.classList.replace("bg-success",myObj.boards[i].connected)
+          // connected.classList.replace("bg-light",myObj.boards[i].connected)
           modal = document.getElementById('modal'+  myObj.boards[i].Name)
           //x.getElementsByClassName("message")[0].innerHTML = JSON.stringify( myObj.boards[i].lastMessage.content)
 
