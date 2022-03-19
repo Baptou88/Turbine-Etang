@@ -14,6 +14,7 @@
 #include "TurbineEtangLib.h"
 #include "motion.h"
 #include "menu.h"
+#include "configuration.h"
 
 
 
@@ -152,6 +153,7 @@ State state_SendMessage(NULL,[](){
   delay(2000);
   do_send_msg = false;
 },NULL,"SendMsg");
+
 State state_POM(NULL,[](){
   static int state = -1;
   unsigned long timerPOM = 0;
@@ -351,8 +353,10 @@ void TraitementCommande(String c){
 	Serial.println("TraitementCommande: " + (String)c);
 	if (c == "DemandeStatut")
 	{
-			StaticJsonDocument<128> doc;
+		StaticJsonDocument<256> doc;
 		String json; 
+
+
 		doc["Ouverture"] = pPosMoteur();
 		doc["Setpoint"] = pSetpoint();
 		doc["Taqui"] = rpmTurbine;
@@ -361,14 +365,37 @@ void TraitementCommande(String c){
 		doc["OuvMaxCodeur"] = ouvertureMax;
     doc["Tension"] = generatrice_voltage;
     doc["State"] = fsm.getActiveState()->Name;
+
+
 		serializeJson(doc,json);
-		Serial.println(json);
-		sendMessage(MASTER, json);
-		LoRa.receive();
+
+    String msg;
+    
+		Serial.println("Ce que j'envoi: " + String(json));
+    #if defined(LORA_ASYNC)
+    
+      sendMessage(MASTER, json,true);
+      
+    #endif // LORA_ASYNC
+    #if !defined(LORA_ASYNC)
+   
+    sendMessage(MASTER, json);
+    LoRa.receive();
+    
+    #endif // LORA_ASYNC
+    
+		
+		
 	} else
 	{
-		sendMessageConfirmation(receivedMessage.msgID);
-		LoRa.receive();
+    #if defined(LORA_ASYNC)
+      sendMessageConfirmation(receivedMessage.msgID,10U,true);
+    #else
+      sendMessageConfirmation(receivedMessage.msgID);
+      LoRa.receive();
+    #endif // LORA_ASYNC
+    
+		
 	}
 	
 	
@@ -606,6 +633,14 @@ void miseAjourSortie(void) {
    }
 	
 }
+#if defined(LORA_ASYNC  )
+bool reactivationReception = false;
+void onTxDone(){
+  reactivationReception = true;
+}
+
+#endif // LORA_ASYNC  
+
 void onReceive(int packetSize){
   	if (packetSize == 0) return;          // if there's no packet, return
 
@@ -695,7 +730,22 @@ void TraitementSerial2(String s){
 }
 void setup() {
   // put your setup code here, to run once:
-  Heltec.begin(true,true,true,true,868E6);
+  Heltec.begin(true,false,true,true,868E6);
+
+  SPI.begin(SCK,MISO,MOSI,SS);
+	LoRa.setPins(SS,RST_LoRa,DIO0);
+	while (!LoRa.begin(868E6))
+	{ 
+    display->clear();
+		Serial.println("erreur lora");
+    display->drawString(0,0,"Init Lora Failed");
+    display->display();
+		delay(1000);
+	}
+  display->clear();
+	Serial.println("init lora successful");
+  display->drawString(0,0,"Init Lora success");
+  display->display();
 
   Serial1.begin(115200, SERIAL_8N1, 2, 17);
 
@@ -732,8 +782,8 @@ void setup() {
 	Heltec.display->display();
 	Serial.println("Found INA260 chip");
  
- FCVanneFermee.loop();
- FCVanneOuverte.loop();
+  FCVanneFermee.loop();
+  FCVanneOuverte.loop();
   initTransition();
 
   if (preferences.begin("Turbine",false))
@@ -762,6 +812,7 @@ void setup() {
 	LoRa.setSignalBandwidth(125E3);
 
 	LoRa.onReceive(onReceive);
+  LoRa.onTxDone(onTxDone);
 	LoRa.receive();
 
   //menus
@@ -810,6 +861,12 @@ void loop() {
 		TraitementCommande(receivedMessage.Content);
 		
 	}
+  if (reactivationReception)
+  {
+    Serial.println("Reactivation Reception");
+    LoRa.receive();
+  }
+  
 
   // Serial.print(millis());
   // Serial.print(" ");

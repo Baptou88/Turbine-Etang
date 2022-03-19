@@ -90,6 +90,12 @@
                     <label id="troisize"></label>
                     <output class="bubble"></output>
                 </div>
+                <div class="mb-3 range-wrap">
+                    <label class="input-group-text " for="txtPower">Lora Tx Power</label>
+                    <input type="range" class="form-control range" id="txtPower" max="16" min="4" step="1" data-node="10" data-action="StxPower=" onchange="update(this)" oninput="document.getElementById('txtPower').innerHTML = this.value" />
+                    <label id="txtPower"></label>
+                    <output class="bubble"></output>
+                </div>
             </div>
             <div class="col">
                 <div class="slider-wrapper">
@@ -104,6 +110,7 @@
                 </div>
                   
             </div>
+            
         </div>
     </div>
 

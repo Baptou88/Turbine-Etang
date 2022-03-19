@@ -509,6 +509,12 @@ bool saveDataCsV(void){
 }
 void TraitementCommande(String c){
 
+	if (c.startsWith("StxPower="))
+	{
+		c.replace("StxPower=","");
+		LoRa.setTxPower(c.toInt());
+		Serial.println("setTxPoxer: " + String(c.toInt()));
+	}
 	
 	if ( c == "CDATA")
 	{
@@ -1268,51 +1274,51 @@ void deserializeResponse(byte board, String Response){
 	logPrintlnV("c'est du json");
 	StaticJsonDocument<512> doc;
 
-  // Deserialize the JSON document
-  DeserializationError error = deserializeJson(doc, Response);
+	// Deserialize the JSON document
+	DeserializationError error = deserializeJson(doc, Response);
 
-  // Test if parsing succeeds.
-  if (error) {
-    Serial.print(F("deserializeJson() failed: "));
-    Serial.println(error.f_str());
-    return;
-  }
-  switch (board)
-  {
-	case ETANG:
-		if (doc.containsKey("maxEtang") && doc.containsKey("minEtang") )
-		{
-			NiveauMaxEtang = doc["maxEtang"];
-			NiveauMinEtang = doc["minEtang"];
-		}
-		NiveauEtang = doc["Niveau"];
-		pidNiveauEtang = -1 * NiveauEtang;
-		break;
-	case TURBINE:
-		if (doc.containsKey("Ouverture") && doc.containsKey("OuvMaxCodeur") && doc.containsKey("Setpoint") && doc.containsKey("Taqui"))
-		{
-			Serial.println("J'ai bien les key du json de turbine");
-			OuvertureVanne = doc["Ouverture"];
-			OuvertureMaxVanne = doc["OuvMaxCodeur"];
-			Setpoint = doc["Setpoint"];
-			Taqui = doc["Taqui"];
-			pidOuvertureMaxVanne = -1*OuvertureMaxVanne;
-			pidOuvertureVanne = -1*OuvertureVanne;
-			myPID.setOutputRange(  (-1)* (OuvertureMaxVanne - OuvertureVanne), (-1 * OuvertureVanne) );
-			//Serial.println("le nouveau min: " + String(myPID.getOutputMin()));
-			//Serial.println("le nouveau max: " + String(myPID.getOutputMax()));
+	// Test if parsing succeeds.
+	if (error) {
+		Serial.print(F("deserializeJson() failed: "));
+		Serial.println(error.f_str());
+		return;
+	}
+	switch (board)
+	{
+		case ETANG:
+			if (doc.containsKey("maxEtang") && doc.containsKey("minEtang") )
+			{
+				NiveauMaxEtang = doc["maxEtang"];
+				NiveauMinEtang = doc["minEtang"];
+			}
+			NiveauEtang = doc["Niveau"];
+			pidNiveauEtang = -1 * NiveauEtang;
+			break;
+		case TURBINE:
+			if (doc.containsKey("Ouverture") && doc.containsKey("OuvMaxCodeur") && doc.containsKey("Setpoint") && doc.containsKey("Taqui"))
+			{
+				Serial.println("J'ai bien les key du json de turbine");
+				OuvertureVanne = doc["Ouverture"];
+				OuvertureMaxVanne = doc["OuvMaxCodeur"];
+				Setpoint = doc["Setpoint"];
+				Taqui = doc["Taqui"];
+				pidOuvertureMaxVanne = -1*OuvertureMaxVanne;
+				pidOuvertureVanne = -1*OuvertureVanne;
+				myPID.setOutputRange(  (-1)* (OuvertureMaxVanne - OuvertureVanne), (-1 * OuvertureVanne) );
+				//Serial.println("le nouveau min: " + String(myPID.getOutputMin()));
+				//Serial.println("le nouveau max: " + String(myPID.getOutputMax()));
+				
+			} else
+			{
+				Serial.println("Je n'ai pas les key du json de turbine");
+			}
 			
-		} else
-		{
-			Serial.println("Je n'ai pas les key du json de turbine");
-		}
-		
-		
-		
-		break;
-	default:
-		break;
-  }
+			
+			
+			break;
+		default:
+			break;
+	}
   
   
   

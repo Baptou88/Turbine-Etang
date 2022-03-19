@@ -62,6 +62,7 @@ void onReceive(int packetSize){
 	}
 	Serial.println("msg recu: " + String(receivedMessage.Content));
 	// if the recipient isn't this device or broadcast,
+  Serial.println("RSSI: " + String(LoRa.packetRssi()));
 	if (receivedMessage.recipient != localAddress && receivedMessage.recipient != 0xFF)
 	{
 		Serial.println("message pas pour moi");
@@ -123,18 +124,57 @@ void setup() {
 	LoRa.setSyncWord(0x12);
 	LoRa.setSignalBandwidth(125E3);
   LoRa.onReceive(onReceive);
-  //LoRa.onTxDone(onTxDone);
+  LoRa.onTxDone(onTxDone);
   
   LoRa.receive();
 
+  byte error, address;
+	int nDevices;
+
+	Serial.println("Scanning...");
+
+	nDevices = 0;
+	for(address = 1; address < 127; address++ )
+	{
+		Wire.beginTransmission(address);
+		error = Wire.endTransmission();
+
+//		Wire1.beginTransmission(address);
+//		error = Wire1.endTransmission();
+
+		if (error == 0)
+		{
+			Serial.print("I2C device found at address 0x");
+			if (address<16)
+			Serial.print("0");
+			Serial.print(address,HEX);
+			Serial.println("  !");
+
+			nDevices++;
+		}
+		else if (error==4)
+		{
+			Serial.print("Unknown error at address 0x");
+			if (address<16)
+				Serial.print("0");
+			Serial.println(address,HEX);
+		}
+	}
+	if (nDevices == 0)
+	{
+    Serial.println("No I2C devices found\n");
+  }
+	else {
+	  Serial.println("done\n");
+  }
   if (! ina219.begin()) {
     Serial.println("Failed to find INA219 chip 1");
     while (1) { delay(10); }
   }
-  // if (! ina219_2.begin()) {
-  //   Serial.println("Failed to find INA219 chip 2");
-  //   while (1) { delay(10); }
-  // }
+  if (! ina219_2.begin()) {
+    Serial.println("Failed to find INA219 chip 2");
+    //while (1) { delay(10); }
+  }
 
   pinMode(2,INPUT);
   for (size_t i = 0; i < 10; i++)
@@ -161,13 +201,14 @@ void loop() {
     newMessage = false;
     TraitementCommande(receivedMessage.Content);
 
-    sendMessage(MASTER,"ok",false);
-    LoRa.receive();
-    reactiveReception = true;
+    sendMessage(MASTER,"ok",true);
+    Serial.println("envoi msg");
+    //LoRa.receive();
+    //reactiveReception = true;
   }
-  if (reactiveReception && LoRa.beginPacket() == 0)
+  if (reactiveReception )
   {
-    reactiveReception = false;
+   reactiveReception = false;
     LoRa.receive();
     Serial.println("Reactivation Reception");
   }
