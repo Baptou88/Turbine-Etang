@@ -365,7 +365,7 @@ void TraitementCommande(String c){
 		doc["OuvMaxCodeur"] = ouvertureMax;
     doc["Tension"] = generatrice_voltage;
     doc["Intensite"] = generatrice_current;
-
+    doc["MPwm"] = MoteurPWM;
     doc["State"] = fsm.getActiveState()->Name;
 
 
@@ -865,6 +865,7 @@ void loop() {
 	}
   if (reactivationReception)
   {
+    reactivationReception = false;
     Serial.println("Reactivation Reception");
     LoRa.receive();
   }
