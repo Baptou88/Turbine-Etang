@@ -403,8 +403,13 @@ function maj(){
             
             var un = message.Tension * message.Intenite
             un = parseFloat(un.toFixed(2))
-            var wn = message.Taqui
-            wn = parseFloat(wn.toFixed(2))
+            
+            if (message.Taqui) {
+              var wn = parseFloat(message.Taqui.toFixed(2))
+              chartrpm.series[0].addPoint([time, wn],true ,false,true);
+            }
+            
+            
             var yn = message.Ouverture * 100
             yn = parseFloat(yn.toFixed(2))
             var zn = message.Setpoint * 100
@@ -413,13 +418,7 @@ function maj(){
             setpoint.value = zn;
             var barProgress = turbineBlock.querySelector(".progress-bar")
             barProgress.style.width = yn + '%'
-              //ajout donnée niveau dans graph
-              // if (chartrpm.series[0].data.length > 40 ) {
-              //   //chartniveau.series[0].addPoint([x, yn],true ,true,true);
-              //   chartrpm.series[0].addPoint([time,wn],true,true,true)
-              // } else {
-                //chartniveau.series[0].addPoint([x, yn],true ,false,true);
-                chartrpm.series[0].addPoint([time, wn],true ,false,true);
+            
                 chartrpm.series[1].addPoint([time,un],true,false,true);
               //}
             // if (chartniveautests.series[1].data.length > 40 ) {

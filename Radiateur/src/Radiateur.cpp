@@ -208,25 +208,32 @@ void loop() {
   }
   if (reactiveReception )
   {
-   reactiveReception = false;
+    reactiveReception = false;
     LoRa.receive();
     Serial.println("Reactivation Reception");
   }
   
   
- float wcs_vol = (analogRead(2)*3.3)/4095;
- float wcs_a =  (wcs_vol - offset_A)/0.0269;
+  float wcs_vol = (analogRead(2)*3.3)/4095;
+  float wcs_a =  (wcs_vol - offset_A)/0.0269;
 
   Heltec.display->clear();
-  Heltec.display->drawString(0,0,(String)current_mA + " mA");
-  Heltec.display->drawString(0,15,"SCT013 "+(String)rawCurrencSCT013 + " " +(String)CurrentSCT013);
-  // Heltec.display->drawString(0,0,(String)ina219.getShuntVoltage_mV()+ " V");
-  Heltec.display->drawString(0,30,(String)current_mA_2 + " mA");
-  Heltec.display->drawString(50,50,(String)wcs_a + " A");
-  Heltec.display->drawString(0,50,(String)wcs_vol + " V");
+  // Heltec.display->drawString(0,0,(String)current_mA + " mA");
+  // Heltec.display->drawString(0,15,"SCT013 "+(String)rawCurrencSCT013 + " " +(String)CurrentSCT013);
   
-  Heltec.display->drawString(60,0,"1 "+ String(rad1.getState()));
-  Heltec.display->drawString(60,10,"2 "+ String(rad2.getState()));
+  // Heltec.display->drawString(0,30,(String)current_mA_2 + " mA");
+  // Heltec.display->drawString(50,50,(String)wcs_a + " A");
+  // Heltec.display->drawString(0,50,(String)wcs_vol + " V");
+  
+  // Heltec.display->drawString(60,0,"1 "+ String(rad1.getState()));
+  // Heltec.display->drawString(60,10,"2 "+ String(rad2.getState()));
+
+  Heltec.display->drawString(0,0,"Ina219");
+  Heltec.display->drawString(0,10,"shunt vol "+(String)ina219.getShuntVoltage_mV()+ " mV");
+  Heltec.display->drawString(0,20,"bus vol   "+(String)ina219.getBusVoltage_V()+ " V");
+  Heltec.display->drawString(0,30,"current   "+(String)ina219.getCurrent_mA()+ " mA");
+
+  
   
   Heltec.display->display();
 

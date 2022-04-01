@@ -324,21 +324,23 @@ String processor(const String& var) {
 		for (size_t i = 0; i < ProgrammatedTasks->size(); i++)
 		{
 			//retour += (String)ProgrammatedTasks->get(i)->name;
-			retour += "<div class=\"card border my-2 \" style=\"width: auto\">\n";
-			retour += "<form  action =\"/updateprogrammateur\" method=\"post\">";
+			retour += "<div x-data=\"{edit:false, name:'" + (String)ProgrammatedTasks->get(i)->name + "'}\" class=\"card border my-2 \" style=\"width: auto\">\n";
+			retour += "<form  action =\"/updateprogrammateur\" method=\"post\">\n";
 			//retour += "<h3>" + (String)ProgrammatedTasks->get(i)->name + "</h3>";
-			retour += "<div class=\"card-header\">";
-			retour += "<div class=\"form-check form-switch\" >";
+			retour += "<div class=\"card-header\">\n";
+			retour += "<div class=\"form-check form-switch\" >\n";
     		retour += "<input class=\"form-check-input\" type=\"checkbox\" name=\"active\" role=\"switch\" id=\"flexSwitchCheckChecked\" " + String("\%ProgrammatedTasks" + String(i) + ":isActive\%")  + " onclick=\"update(this)\">";
   			//retour += "<label class=\"form-check-label\" for=\"flexSwitchCheckChecked\">Checked switch checkbox input</label>";
-			retour += "<h5 class=\"card-title\">" + (String)ProgrammatedTasks->get(i)->name + "</h5>\n";
+			retour += "<button x-show=\"!edit\" @click=\"edit = ! edit\">Toggle</button>\n";
+			retour += "<div x-show=\"!edit\" >\n<h5  class=\"card-title\" x-text=\"name\"></h5>\n</div>\n";
+			retour += "<input  x-show=\"edit\" @click.outside=\"edit = false\" type=\"text\" name=\"\" id=\"\" x-model=\"name\">\n";
 
-			retour += "</div>";
-			retour += "</div>";
-			retour += "<div class=\"form-group\" hidden>";
-    		retour += "<label for=\"exampleFormControlInput1\">ID</label>";
-    		retour += "<input type=\"number\" class=\"form-control\" name=\"id\" id=\"exampleFormControlInput1\" placeholder=\"id\" value=\""+(String) i +"\" hidden>";
-  			retour += "</div>";
+			retour += "</div>\n";
+			retour += "</div>\n";
+			retour += "<div class=\"form-group\" hidden>\n";
+    		retour += "<label for=\"exampleFormControlInput1\">ID</label>\n";
+    		retour += "<input type=\"number\" class=\"form-control\" name=\"id\" id=\"exampleFormControlInput1\" placeholder=\"id\" value=\""+(String) i +"\" hidden>\n";
+  			retour += "</div>\n";
 			retour += "<label for=\"appt\">Heure du déclanchement:</label>\n";
 			retour += "<input type=\"time\" id=\"appt\" name=\"appt\"  value= \"\%ProgrammatedTasks" + String(i) + ":getHours\%" + ":" + "\%ProgrammatedTasks" + String(i) + ":getMinutes\%" +"\"  required>\n";
 			retour += "<label for=\"customRange1\" class=\"form-label\">Example range</label>";

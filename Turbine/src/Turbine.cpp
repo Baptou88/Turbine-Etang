@@ -371,7 +371,7 @@ void TraitementCommande(String c){
 
 		serializeJson(doc,json);
 
-    String msg;
+    
     
 		Serial.println("Ce que j'envoi: " + String(json));
     #if defined(LORA_ASYNC)
@@ -840,13 +840,7 @@ void loop() {
 
   display->clear();
 
-  if(Serial.available()){
-    int valeur;
-    valeur=Serial.parseInt();  //récupération des caractères sur le port série
-    if(valeur!=0){
-      Setpoint = valeur;
-    }
-  }
+  
   
   if(Serial1.available()){
     Serial.print("[Se1]: ");
