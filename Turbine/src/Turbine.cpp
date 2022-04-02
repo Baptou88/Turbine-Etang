@@ -68,7 +68,8 @@ int incCodeuse = 400;
 float tourMoteurVanne = 14 / float(44); 
 
 // Taquimetre
-unsigned long previousMillisTaqui = 0;
+unsigned long previousMillisCalculTaqui = 0;
+unsigned long previousMillisDetectionTaqui = 0;
 volatile unsigned long countTaqui = 0;
 float rpmTurbine = 0;
 unsigned long previousCalculTaqui = 0;
@@ -581,14 +582,20 @@ void displayData() {
 
  
 IRAM_ATTR void isrTaqui(void){
- countTaqui++;
+ if (millis() - previousMillisDetectionTaqui > 5 )
+ {
+    previousMillisDetectionTaqui = millis();
+    countTaqui++;
+ }
+ 
+ 
 }
 float mesureTaqui(void){
   detachInterrupt(pinTaqui);
-	float rpm = countTaqui * 60000 / float((millis() - previousMillisTaqui));
+	float rpm = countTaqui * 60000 / float((millis() - previousMillisCalculTaqui));
   attachInterrupt(pinTaqui, isrTaqui,RISING);
 	countTaqui = 0;
-	previousMillisTaqui = millis();
+	previousMillisCalculTaqui = millis();
 
 	return rpm;
 }
@@ -608,7 +615,7 @@ void acquisitionEntree(void) {
 		
 	}
 
-  if (millis()> previousCalculTaqui + 1000)
+  if (millis()> previousCalculTaqui + 2000)
 	{
 		previousCalculTaqui = millis();
 		rpmTurbine = mesureTaqui();
