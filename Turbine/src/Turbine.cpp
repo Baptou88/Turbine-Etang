@@ -5,7 +5,9 @@
 #include <Adafruit_I2CDevice.h>
 #include <Preferences.h>
 #include <Adafruit_INA260.h>
+#include <Adafruit_INA219.h>
 #include <ArduinoJSON.h>
+#include <Adafruit_ADS1X15.h>
 
 #include "Turbine.h"
 #include "digitalInput.h"
@@ -85,7 +87,25 @@ byte localAddress = TURBINE;
 Preferences preferences;
 
 Adafruit_INA260 ina260 = Adafruit_INA260();
-double currentValue = 0;
+Adafruit_INA219 ina219 = Adafruit_INA219(0x44);
+
+struct ina_T
+{
+  float current_mA = 0;
+  float busVoltage = 0;
+
+};
+ina_T ina219Data;
+ina_T ina260Data;
+
+Adafruit_ADS1115 ads;
+uint16_t rawTension_ads = 0;
+float Tension_ads = 0;
+uint16_t rawCurrent_ads = 0;
+float Current_ads = 0;
+
+double currentValue260 = 0;
+double currentValue219 = 0;
 unsigned long previousMesureIntensite = 0;
 int maxIntensite = 9000; //mA
 
@@ -95,7 +115,11 @@ byte displayMode = 0;
 
 String  menu_param[] = {"AP", "STA","ScanWifi"};
 menu Menu_param(3,3,NULL,NULL);
-
+#if defined(LORA_ASYNC  )
+bool reactivationReception = false;
+bool needReactivationReception = true;
+unsigned long delaireactivation = 0;
+#endif
 void INIT(){
   static unsigned long ti = millis();
 
@@ -178,7 +202,7 @@ State state_POM(NULL,[](){
     state = 3;
     
   }
-  if (((currentValue > maxIntensite) || (millis() - timerPOM > 45000)) && state !=0 && (state !=-1))
+  if (((currentValue260 > maxIntensite) || (millis() - timerPOM > 45000)) && state !=0 && (state !=-1))
   {
     state = 5;
   }
@@ -220,7 +244,7 @@ State state_POM(NULL,[](){
   display->drawString(10,50,(String)FCVanneFermee.getState());
   display->drawString(60,50,(String)FCVanneOuverte.getState());
   display->drawString(0,0,"State, "+ String(state));
-  display->drawString(0,20,"Intensite: " + (String)currentValue);
+  display->drawString(0,20,"Intensite: " + (String)currentValue260);
   display->display();
 },NULL,"POM");
 State state_OuvertureTotale(NULL,[](){
@@ -312,13 +336,13 @@ void initTransition(){
 
   });
   fsm.add_transition(&state_AUTO,&state_StopIntensite,[](unsigned long duration){
-    return currentValue > maxIntensite;
+    return currentValue260 > maxIntensite;
   },NULL);
   fsm.add_transition(&state_OuvertureTotale,&state_StopIntensite,[](unsigned long duration){
-    return currentValue > maxIntensite;
+    return currentValue260 > maxIntensite;
   },NULL);
   fsm.add_transition(&state_FermetureTotale,&state_StopIntensite,[](unsigned long duration){
-    return currentValue > maxIntensite;
+    return currentValue260 > maxIntensite;
   },NULL);
 
   fsm.add_transition(&state_AUTO,&state_param,[](unsigned long duration){
@@ -358,14 +382,14 @@ void TraitementCommande(String c){
 		String json; 
 
 
-		doc["Ouverture"] = pPosMoteur();
+		doc["Ouverture"] = String(pPosMoteur(),2);
 		doc["Setpoint"] = pSetpoint();
 		doc["Taqui"] = rpmTurbine;
 		//doc["StatutVanne"] = StatutVanne;
 		doc["OuvCodeur"] = posMoteur;
 		doc["OuvMaxCodeur"] = ouvertureMax;
-    doc["Tension"] = generatrice_voltage;
-    doc["Intensite"] = generatrice_current;
+    doc["Tension"] = String(generatrice_voltage,2);
+    doc["Intensite"] = String(generatrice_current,2);
     doc["MPwm"] = MoteurPWM;
     doc["State"] = fsm.getActiveState()->Name;
 
@@ -378,6 +402,9 @@ void TraitementCommande(String c){
     #if defined(LORA_ASYNC)
     
       sendMessage(MASTER, json,true);
+      delaireactivation = millis();
+      needReactivationReception  = true;
+      
       
     #endif // LORA_ASYNC
     #if !defined(LORA_ASYNC)
@@ -393,6 +420,8 @@ void TraitementCommande(String c){
 	{
     #if defined(LORA_ASYNC)
       sendMessageConfirmation(receivedMessage.msgID,10U,true);
+      delaireactivation = millis();
+      needReactivationReception  = true;
     #else
       sendMessageConfirmation(receivedMessage.msgID);
       LoRa.receive();
@@ -505,7 +534,7 @@ void displayData() {
   if (PrgButton->frontDesceandant())
   {
     displayMode ++;
-    if (displayMode >4 )
+    if (displayMode >5 )
     {
       displayMode = 0;
     }
@@ -559,16 +588,29 @@ void displayData() {
 			#endif
 			
 			Heltec.display->drawString(0,15,"Intensite: ");
-			Heltec.display->drawString(60,15,String(currentValue));
+			Heltec.display->drawString(60,15,String(currentValue260));
 			Heltec.display->drawString(100,15,"mA");
 			Heltec.display->drawString(0,28,"MaxI: ");
 			Heltec.display->drawString(55,28,String(maxIntensite));
 			Heltec.display->drawString(100,28,"mA");
-			Heltec.display->drawString(0,41,"Rap Reduc: ");
-			Heltec.display->drawString(60,41,String(tourMoteurVanne));
-			
+			Heltec.display->drawString(0,41,"Conso ");
+			Heltec.display->drawString(60,41,String(currentValue219));
+			Heltec.display->drawString(100,28,"mA");
+      
 			break;
+    case 4:
+      Heltec.display->drawString(0,0,"Conso Batterie:");
+      Heltec.display->drawString(0,15,(String)ina219Data.current_mA + "mA") ;
+      Heltec.display->drawString(0,25,(String)ina219Data.busVoltage + "V");
+      break;
+    case 5:
+      Heltec.display->drawString(0,0,"Puissance generé");
+      Heltec.display->drawString(0,15,"U " +String(rawTension_ads) + " | "  +String(Tension_ads));
+      
+      Heltec.display->drawString(0,30,"I " +String(rawCurrent_ads) + " | " + String(Current_ads));
+      
 
+      break;
 		default:
 			Heltec.display->drawString(0,0,"Erreur displayData");
 			break;
@@ -611,8 +653,19 @@ void acquisitionEntree(void) {
   if (millis()> previousMesureIntensite + 200)
 	{
 		previousMesureIntensite = millis();
-		currentValue = ina260.readCurrent();
-		
+		currentValue260 = ina260.readCurrent();
+		currentValue219 = ina219.getCurrent_mA();
+
+    ina260Data.current_mA = ina260.readCurrent();
+    ina260Data.busVoltage = ina260.readBusVoltage();
+
+    ina219Data.current_mA = ina219.getCurrent_mA();
+    ina219Data.busVoltage = ina219.getBusVoltage_V();
+
+    rawTension_ads = ads.readADC_SingleEnded(0);
+    Tension_ads = ads.computeVolts(rawTension_ads);
+    rawCurrent_ads = ads.readADC_SingleEnded(2);
+    Current_ads = (ads.computeVolts(rawTension_ads)-1840) * 0.032;
 	}
 
   if (millis()> previousCalculTaqui + 2000)
@@ -620,6 +673,9 @@ void acquisitionEntree(void) {
 		previousCalculTaqui = millis();
 		rpmTurbine = mesureTaqui();
 	}
+  
+ 
+  
 }
 
 /**
@@ -645,7 +701,7 @@ void miseAjourSortie(void) {
 	
 }
 #if defined(LORA_ASYNC  )
-bool reactivationReception = false;
+
 void onTxDone(){
   reactivationReception = true;
 }
@@ -756,7 +812,7 @@ void setup() {
   display->drawString(0,0,"Init Lora success");
   display->display();
 
-  Serial1.begin(115200, SERIAL_8N1, 2, 17);
+  //Serial1.begin(115200, SERIAL_8N1, 2, 17);
 
   //Sortie Moteur
   pinMode(pinMoteurO,OUTPUT);
@@ -787,10 +843,36 @@ void setup() {
     Heltec.display->display();
     delay(1000);
   }
+  
+  
 	Heltec.display->drawString(0,24,"INA260 ok !");
 	Heltec.display->display();
 	Serial.println("Found INA260 chip");
- 
+
+  while (!ina219.begin(&Wire))
+  {
+    Heltec.display->drawString(0,36,"Couldn't find INA219 chip");
+    Serial.println("Couldn't find INA219 chip");
+    Heltec.display->display();
+    delay(1000);
+  }
+  Heltec.display->drawString(0,36,"INA219 ok !");
+	Heltec.display->display();
+	Serial.println("Found INA219 chip");
+
+  while (!ads.begin(0x48, &Wire))
+  {
+    Heltec.display->drawString(0,48,"Couldn't find ADS chip");
+    Serial.println("Failed to initialize ADS.");
+    Heltec.display->display();
+    delay(1000);
+  }
+  Heltec.display->drawString(0,48,"ADS ok !");
+	Heltec.display->display();
+	Serial.println("Found ADS chip");
+  ads.startADCReading(ADS1X15_REG_CONFIG_MUX_SINGLE_0, /*continuous=*/false);
+  ads.startADCReading(ADS1X15_REG_CONFIG_MUX_SINGLE_2, /*continuous=*/false);
+  
   FCVanneFermee.loop();
   FCVanneOuverte.loop();
   initTransition();
@@ -864,12 +946,19 @@ void loop() {
 		TraitementCommande(receivedMessage.Content);
 		
 	}
-  if (reactivationReception)
+  if (reactivationReception )
   {
     reactivationReception = false;
+    needReactivationReception = false;
     Serial.println("Reactivation Reception");
     LoRa.receive();
   }
+  if (needReactivationReception && millis() - delaireactivation >10000)
+  {
+    needReactivationReception = false;
+    LoRa.receive();
+  }
+  
   
 
   // Serial.print(millis());

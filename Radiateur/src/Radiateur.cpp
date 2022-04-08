@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <heltec.h>
 #include <Adafruit_INA219.h>
+#include <Adafruit_ADS1X15.h>
 
 
 
@@ -9,7 +10,7 @@
 
 
 
-
+Adafruit_ADS1115 ads;
 
 
 digitalOutput rad1(12);
@@ -175,6 +176,11 @@ void setup() {
     Serial.println("Failed to find INA219 chip 2");
     //while (1) { delay(10); }
   }
+  if (!ads.begin()) {
+    Serial.println("Failed to initialize ADS.");
+    while (1);
+  }
+  ads.startADCReading(ADS1X15_REG_CONFIG_MUX_SINGLE_0, /*continuous=*/false);
 
   pinMode(2,INPUT);
   for (size_t i = 0; i < 10; i++)
@@ -241,6 +247,17 @@ void loop() {
   
 
   gestionSorties();
+
+  if (!ads.conversionComplete()) {
+    return;
+  }
+
+  int16_t results = ads.getLastConversionResults();
+
+  Serial.print("Single : : "); Serial.print(results); Serial.print("("); Serial.print(ads.computeVolts(results)); Serial.println("mV)");
+
+  // Start another conversion.
+  ads.startADCReading(ADS1X15_REG_CONFIG_MUX_SINGLE_0, /*continuous=*/false);
 
   
   delay(100);

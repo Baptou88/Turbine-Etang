@@ -41,6 +41,11 @@ template<typename T> using LList = LL::LinkedList<T>;
 #include "connexionWifi.h"
 #include "ProgrammatedTask.h"
 
+#include "frame1.h"
+#include "frame2.h"
+#include "frame3.h"
+#include "frame4.h"
+
 
 
 #define BAND 868E6
@@ -65,6 +70,7 @@ digitalInput* testbtn = new digitalInput(2,INPUT_PULLDOWN);
 RTC_DATA_ATTR byte defaultConnectWifi = 0; //
 
 bool previousEtatbutton = false;
+bool crc = false;
 SPIClass spi1;
 
 // Set web server port number to 80
@@ -331,9 +337,9 @@ String processor(const String& var) {
 			retour += "<div class=\"form-check form-switch\" >\n";
     		retour += "<input class=\"form-check-input\" type=\"checkbox\" name=\"active\" role=\"switch\" id=\"flexSwitchCheckChecked\" " + String("\%ProgrammatedTasks" + String(i) + ":isActive\%")  + " onclick=\"update(this)\">";
   			//retour += "<label class=\"form-check-label\" for=\"flexSwitchCheckChecked\">Checked switch checkbox input</label>";
-			retour += "<button x-show=\"!edit\" @click=\"edit = ! edit\">Toggle</button>\n";
+			retour += "<button class=\"btn btn-outline-success\" x-show=\"!edit\" @click.prevent=\"edit = ! edit\">Toggle</button>\n";
 			retour += "<div x-show=\"!edit\" >\n<h5  class=\"card-title\" x-text=\"name\"></h5>\n</div>\n";
-			retour += "<input  x-show=\"edit\" @click.outside=\"edit = false\" type=\"text\" name=\"\" id=\"\" x-model=\"name\">\n";
+			retour += "<input x-show=\"edit\" @click.outside=\"edit = false\" type=\"text\" name=\"\" id=\"\" x-model=\"name\">\n";
 
 			retour += "</div>\n";
 			retour += "</div>\n";
@@ -514,6 +520,18 @@ bool saveDataCsV(void){
 }
 void TraitementCommande(String c){
 
+	if (c.startsWith("LoraCrc="))
+	{
+		c.replace("LoraCrc=","");
+		if (c.toInt() == 1)
+		{
+			LoRa.enableCrc();
+			crc = true;
+		}else{
+			crc = false;
+			LoRa.disableCrc();
+		}
+	}
 	if (c.startsWith("StxPower="))
 	{
 		c.replace("StxPower=","");
@@ -1213,8 +1231,9 @@ void displayData(void) {
 		break;
 	case 5:
 		Heltec.display->drawString(0,0,"Niveau Etang " + String(NiveauEtang));
-		Heltec.display->drawString(0,18,"Niveau Vanne " + String(OuvertureVanne));
-		Heltec.display->drawString(0,36,"intervalMsg "+ String(intervalleEnvoi/1000) + "s");
+		Heltec.display->drawString(0,16,"Niveau Vanne " + String(OuvertureVanne));
+		Heltec.display->drawString(0,32,"intervalMsg "+ String(intervalleEnvoi/1000) + "s");
+		Heltec.display->drawString(0,48,"LoraCrc "+ String(crc) );
 
 		break;
 	default:
@@ -1820,6 +1839,30 @@ void setup() {
 	analogSetClockDiv(255); // 1338mS
 	
 	lireTacheProgrammer();
+
+
+
+	Heltec.display->drawXbm(21, 0, frame1_width, frame1_height, frame1_bits); 
+  //mostra o buffer no display
+  Heltec.display->display();
+  //aguarda um 500 antes de mostrar o próximo frame
+  delay(500);
+  
+  //repete o processo para todos os outros frames
+  Heltec.display->clear();
+  Heltec.display->drawXbm(21, 0, frame2_width, frame2_height, frame2_bits);
+  Heltec.display->display();
+  delay(500);
+  
+  Heltec.display->clear();
+  Heltec.display->drawXbm(21, 0, frame3_width, frame3_height, frame3_bits);
+  Heltec.display->display();
+  delay(500);
+  
+  Heltec.display->clear();
+  Heltec.display->drawXbm(21, 0, frame4_width, frame4_height, frame4_bits);
+  Heltec.display->display();
+  delay(500);
 
 }
 
