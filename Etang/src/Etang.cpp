@@ -23,6 +23,8 @@
 
 #define EPRGBUTTON 0
 
+#define pinMaxEtang 36 
+bool MaxEtang = false;
 
 Adafruit_BMP280 bmp; // I2C
 
@@ -138,6 +140,7 @@ bool finTempo(int numTempo) {
 }
 void acquisitionEntree(void) {
 	Entree[EPRGBUTTON] = digitalRead(PRGButton)? false : true;
+	MaxEtang = digitalRead(pinMaxEtang);
 	
 }
 void miseAjourSortie(void) {
@@ -250,6 +253,7 @@ void displayData(void)
 		
 		Heltec.display->drawString(60, 2,"Max:" + String(NiveauMax));
 		Heltec.display->drawString(60, 52,"Min:" + String(NiveauMin));
+		Heltec.display->drawString(0,50,String(MaxEtang ? "*" :""));
 		break;
 	case 1:
 		Heltec.display->drawString(0, 0, "Range   " + String(vl53l1x.ranging_data.range_mm));
@@ -426,7 +430,7 @@ void mesureSysteme(void)
 	if (vl53l1x.dataReady())
 	{
 		
-		Serial.println("Niveau " + (String)vl53l1x.read(false));
+		//Serial.println("Niveau " + (String)vl53l1x.read(false));
 		NiveauEtang = vl53l1x.ranging_data.range_mm;
 	}
 	
@@ -514,6 +518,8 @@ void TraitementCommande(String Commande){
 		//esp_sleep_enable_gpio_wakeup();
 		//esp_sleep_enable_ext0_wakeup(GPIO_NUM_26,LOW);
 		esp_sleep_enable_timer_wakeup(Commande.toInt()*1000); 
+		esp_sleep_enable_ext0_wakeup(GPIO_NUM_36, HIGH);
+		esp_sleep_enable_ext1_wakeup(0x1000000000,ESP_EXT1_WAKEUP_ANY_HIGH);
 		esp_deep_sleep_start();
 	}
 	if (Commande.startsWith("LightSleep="))
@@ -723,6 +729,9 @@ void setup() {
 		delay(1000);
 	}
 
+	pinMode(pinMaxEtang,INPUT);
+	esp_sleep_enable_ext0_wakeup(GPIO_NUM_36, HIGH);
+
 	Serial.println(string_wakeup_reason(esp_sleep_get_wakeup_cause()));
 	Serial.println(wakeup_touchpad(esp_sleep_get_touchpad_wakeup_status()));
 	pinMode(LED_BUILTIN, OUTPUT);
@@ -748,9 +757,23 @@ void setup() {
 		delay(1000);
 		
 	}
-	
 	Heltec.display->drawString(0, 24, "OK");
 	Serial.println("Ok init VL53L1X");
+
+	//ina219
+	
+	Heltec.display->drawString(20, 24, "Init ina219");
+	while (!ina.begin())
+	{
+		Heltec.display->drawString(0, 36, "X");
+		Serial.println("Failed init ina219");
+		Heltec.display->display();
+		delay(1000);
+		
+	}
+	Heltec.display->drawString(0, 36, "OK");
+	Serial.println("Ok init INA219");
+	
 	
 
 

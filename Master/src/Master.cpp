@@ -820,8 +820,6 @@ void RouteHttpSTA() {
 		request->send(200, "application/json", retour);
 		});
 	serverHTTP.on("/", HTTP_GET, [](AsyncWebServerRequest* request) {
-		
-		File file = SPIFFS.open("/index.html");
 		request->send(SPIFFS,"/index.html", "text/html", false, processor);
 		});
 	serverHTTP.on("/programmateur/new", HTTP_GET, [](AsyncWebServerRequest* request) {
@@ -896,6 +894,7 @@ void RouteHttpSTA() {
 			request->send(400);
 			return;
 		}
+		//TODO ajouter nom de la tache
 		
 		if (request->hasParam("active",true))
 		{
@@ -954,13 +953,10 @@ void RouteHttpSTA() {
 		request->send(SPIFFS, "/icons/Energy-icons_hydro-electricity-512.svg", "image/svg");
 		});
 	serverHTTP.on("/favicon.png", HTTP_GET, [](AsyncWebServerRequest* request) {
-		Serial.println("ico ===========");
-		if (SPIFFS.exists("/favicon.png"))
-		{
-			Serial.println("ok");
-		}
-		
 		request->send(SPIFFS,"/favicon.png","image/png");
+		});
+	serverHTTP.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest* request) {
+		request->send(SPIFFS,"/favicon.ico","image/x-icon");
 		});
 	serverHTTP.on("/service-worker.js", HTTP_GET, [](AsyncWebServerRequest* request) {
 		request->send(SPIFFS, "/service-worker.js", "application/javascript");
@@ -970,6 +966,7 @@ void RouteHttpSTA() {
 		});
 	serverHTTP.on("/data.csv", HTTP_GET, [](AsyncWebServerRequest* request) {
 		request->send(SPIFFS, "/data.csv", "text/plain");
+		logPrintlnE("data.csv ok");
 		});
 	
 	serverHTTP.on("/secret.html",HTTP_GET,[](AsyncWebServerRequest* request){
@@ -1234,6 +1231,15 @@ void displayData(void) {
 		Heltec.display->drawString(0,16,"Niveau Vanne " + String(OuvertureVanne));
 		Heltec.display->drawString(0,32,"intervalMsg "+ String(intervalleEnvoi/1000) + "s");
 		Heltec.display->drawString(0,48,"LoraCrc "+ String(crc) );
+
+		break;
+	case 6:
+		Heltec.display->drawString(0,10,String(esp_get_free_internal_heap_size()));
+		
+		Heltec.display->drawString(0,25,String(esp_get_free_heap_size()));
+		Heltec.display->drawString(0,40,String(ESP.getHeapSize()));
+		Heltec.display->drawString(0,55,String(ESP.getFreeHeap()));
+		
 
 		break;
 	default:
