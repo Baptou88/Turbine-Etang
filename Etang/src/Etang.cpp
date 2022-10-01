@@ -290,12 +290,12 @@ void EnvoyerMsgStatut(void){
 	String json; 
 	doc["mesure"] = vl53l1x.ranging_data.range_mm;
 	doc["Niveau"] = PNiveau();
-	doc["RangeStatus"] = VL53L1X::rangeStatusToString( vl53l1x.ranging_data.range_status);
+	doc["RangeStatus"] =  vl53l1x.ranging_data.range_status;
 	doc["distanceMode"] = vl53l1x.getDistanceMode();
 	doc["minEtang"] = NiveauMin;
 	doc["maxEtang"] = NiveauMax;
 	doc["temp"] = temp;
-	doc["pressure"] = pressure;
+	//doc["pressure"] = pressure;
 	
 	serializeJson(doc,json);
 	Serial.println("voila ce que jenvoi: "+ String(json));
@@ -430,8 +430,9 @@ void mesureSysteme(void)
 	if (vl53l1x.dataReady())
 	{
 		
-		//Serial.println("Niveau " + (String)vl53l1x.read(false));
+		Serial.println("Niveau " + (String)vl53l1x.read(false));
 		NiveauEtang = vl53l1x.ranging_data.range_mm;
+		Serial.println("Niveau: " + (String)NiveauEtang);
 	}
 	
 

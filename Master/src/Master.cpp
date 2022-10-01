@@ -1378,7 +1378,8 @@ void onReceive(int packetSize)
 		Serial.println("error: message length does not match length");
 		return;                             // skip rest of function
 	}
-	Serial.println("msg recu: " + String(receivedMessage.Content));
+	//Serial.println("msg recu: " + String(receivedMessage.Content));
+	Serial.println("msg recu");
 	// if the recipient isn't this device or broadcast,
 	if (receivedMessage.recipient != localAddress && receivedMessage.recipient != 0xFF)
 	{
@@ -1392,7 +1393,7 @@ void onReceive(int packetSize)
 	test->lastmessage = millis();
 	test->LastMessage = receivedMessage;
 	test->newMessage = true;
-	
+	logPrintlnI("fin onreceive");
 	
 	Heltec.display->println("0x" + String(receivedMessage.sender,HEX) + " to 0x" + String(receivedMessage.recipient, HEX) );
 	
@@ -1735,6 +1736,7 @@ void handleMode(){
 		break;
 	}
 }
+
 void acquisitionEntree(void){
 	prgButton->loop();
 	encodLeft->loop();
